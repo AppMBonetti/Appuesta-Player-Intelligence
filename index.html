@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appuesta — Player Intelligence & Churn Prevention</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --red: #e4002b;
+  --red-dark: #b8001f;
+  --red-light: #ff1a45;
+  --gray: #53565a;
+  --gray-light: #8a8d91;
+  --gray-lighter: #e8e9ea;
+  --bg: #0d0f12;
+  --bg-card: #161a20;
+  --bg-card-hover: #1c2128;
+  --bg-surface: #1e2329;
+  --text: #f0f1f3;
+  --text-muted: #8a8d91;
+  --green: #00c853;
+  --green-dark: #00a844;
+  --yellow: #ffc107;
+  --orange: #ff6d00;
+  --blue: #2979ff;
+  --purple: #7c4dff;
+  --segment-new: #2979ff;
+  --segment-active: #00c853;
+  --segment-vip: #ffc107;
+  --segment-cooling: #ff9800;
+  --segment-atrisk: #ff5722;
+  --segment-churned: #9e9e9e;
+  --segment-registered: #7c4dff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--gray); border-radius: 3px; }
+
+.header {
+  background: linear-gradient(135deg, var(--bg-card) 0%, #1a1e26 100%);
+  border-bottom: 1px solid rgba(228,0,43,0.2);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.header-left { display: flex; align-items: center; gap: 16px; }
+
+.logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: -0.5px;
+}
+
+.logo-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 500;
+}
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.snapshot-badge {
+  background: rgba(228,0,43,0.1);
+  border: 1px solid rgba(228,0,43,0.3);
+  color: var(--red-light);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+
+.storage-indicator {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-family: 'Space Mono', monospace;
+}
+
+.storage-indicator.ok { background: rgba(0,200,83,0.1); color: var(--green); }
+.storage-indicator.warn { background: rgba(255,193,7,0.1); color: var(--yellow); }
+.storage-indicator.empty { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+.main { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 12px;
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  border: none;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.tab.active { color: var(--text); background: var(--red); }
+
+/* Section visibility */
+.section { display: none; flex-direction: column; gap: 20px; }
+.section.active { display: flex; }
+
+/* Upload Steps */
+.upload-instructions {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 28px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.upload-instructions h2 { font-size: 20px; margin-bottom: 8px; }
+
+.upload-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.upload-step {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.upload-step .step-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--red);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.upload-step h3 { font-size: 14px; margin-bottom: 6px; font-weight: 600; }
+.upload-step p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+.file-status {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+
+.file-status.pending { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+.file-status.loaded { background: rgba(0,200,83,0.1); color: var(--green); }
+
+.drop-zone {
+  border: 2px dashed rgba(228,0,43,0.3);
+  border-radius: 16px;
+  padding: 48px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(228,0,43,0.02);
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--red);
+  background: rgba(228,0,43,0.06);
+}
+
+.drop-zone h3 { font-size: 16px; margin-bottom: 8px; }
+.drop-zone p { color: var(--text-muted); font-size: 13px; }
+.drop-zone input[type="file"] { display: none; }
+
+/* Backup/Restore Panel */
+.backup-panel {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(41,121,255,0.2);
+}
+
+.backup-panel h3 { font-size: 16px; margin-bottom: 12px; color: var(--blue); }
+
+.backup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.backup-box {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.backup-box h4 { font-size: 13px; margin-bottom: 6px; font-weight: 600; }
+.backup-box p { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+
+/* Buttons */
+.btn {
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--red); color: white; }
+.btn-primary:hover { background: var(--red-light); }
+.btn-secondary { background: var(--gray); color: white; }
+.btn-outline { background: none; border: 1px solid var(--red); color: var(--red-light); }
+.btn-outline:hover { background: var(--red); color: white; }
+.btn-blue { background: rgba(41,121,255,0.15); color: var(--blue); border: 1px solid rgba(41,121,255,0.3); }
+.btn-blue:hover { background: var(--blue); color: white; }
+.btn-green { background: rgba(0,200,83,0.15); color: var(--green); border: 1px solid rgba(0,200,83,0.3); }
+.btn-green:hover { background: var(--green); color: white; }
+.btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 8px; }
+
+/* KPI Cards */
+.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+
+.kpi-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: all 0.2s;
+}
+
+.kpi-card:hover { border-color: rgba(228,0,43,0.2); }
+
+.kpi-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.kpi-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.kpi-sub.positive { color: var(--green); }
+.kpi-sub.negative { color: var(--red); }
+
+/* Segment Cards */
+.segment-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+
+.segment-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 18px;
+  border-left: 4px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.segment-card:hover { transform: translateY(-2px); }
+.segment-card.seg-registered { border-left-color: var(--segment-registered); }
+.segment-card.seg-new { border-left-color: var(--segment-new); }
+.segment-card.seg-active { border-left-color: var(--segment-active); }
+.segment-card.seg-vip { border-left-color: var(--segment-vip); }
+.segment-card.seg-cooling { border-left-color: var(--segment-cooling); }
+.segment-card.seg-atrisk { border-left-color: var(--segment-atrisk); }
+.segment-card.seg-churned { border-left-color: var(--segment-churned); }
+
+.segment-name { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.segment-count { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; }
+.segment-pct { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.segment-delta { font-size: 11px; margin-top: 4px; font-family: 'Space Mono', monospace; }
+.segment-delta.up { color: var(--green); }
+.segment-delta.down { color: var(--red); }
+.segment-delta.neutral { color: var(--text-muted); }
+
+.segment-revenue {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.segment-revenue span { font-family: 'Space Mono', monospace; color: var(--text); font-weight: 600; }
+
+/* Charts */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.chart-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.chart-card.full-width { grid-column: 1 / -1; }
+.chart-card h3 { font-size: 14px; margin-bottom: 16px; }
+.chart-container { position: relative; height: 280px; }
+
+/* Definitions */
+.definitions-panel {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.definitions-panel h3 { font-size: 16px; margin-bottom: 16px; }
+
+.def-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.def-item {
+  background: var(--bg-surface);
+  border-radius: 10px;
+  padding: 16px;
+  border-left: 3px solid;
+}
+
+.def-item h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.def-item p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+.def-item .criteria {
+  margin-top: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--yellow);
+  background: rgba(255,193,7,0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.def-item.seg-registered { border-left-color: var(--segment-registered); }
+.def-item.seg-new { border-left-color: var(--segment-new); }
+.def-item.seg-active { border-left-color: var(--segment-active); }
+.def-item.seg-vip { border-left-color: var(--segment-vip); }
+.def-item.seg-cooling { border-left-color: var(--segment-cooling); }
+.def-item.seg-atrisk { border-left-color: var(--segment-atrisk); }
+.def-item.seg-churned { border-left-color: var(--segment-churned); }
+
+/* Migration Table */
+.migration-panel {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255,152,0,0.2);
+}
+
+.migration-panel h3 { font-size: 16px; margin-bottom: 16px; color: var(--orange); }
+
+.migration-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+
+.migration-item:last-child { border-bottom: none; }
+
+.migration-arrow { color: var(--text-muted); font-size: 16px; }
+.migration-count { font-family: 'Space Mono', monospace; font-weight: 700; min-width: 30px; }
+
+/* Actions */
+.actions-panel {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.action-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.action-item:last-child { border-bottom: none; }
+
+.action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.action-content h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.action-content p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+/* Table controls */
+.table-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.filter-btn:hover { border-color: var(--red); color: var(--text); }
+.filter-btn.active { background: var(--red); border-color: var(--red); color: white; }
+
+.search-input {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  width: 240px;
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+
+.player-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.player-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+.player-table th {
+  background: var(--bg-surface);
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.player-table th:hover { color: var(--text); }
+
+.player-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  white-space: nowrap;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+}
+
+.player-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.segment-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.segment-badge.registered { background: rgba(124,77,255,0.15); color: var(--segment-registered); }
+.segment-badge.new { background: rgba(41,121,255,0.15); color: var(--segment-new); }
+.segment-badge.active { background: rgba(0,200,83,0.15); color: var(--segment-active); }
+.segment-badge.vip { background: rgba(255,193,7,0.15); color: var(--segment-vip); }
+.segment-badge.cooling { background: rgba(255,152,0,0.15); color: var(--segment-cooling); }
+.segment-badge.atrisk { background: rgba(255,87,34,0.15); color: var(--segment-atrisk); }
+.segment-badge.churned { background: rgba(158,158,158,0.15); color: var(--segment-churned); }
+
+.prev-badge {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.risk-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.risk-bar-fill { height: 100%; border-radius: 3px; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.page-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.page-btn:hover { border-color: var(--red); color: var(--text); }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* LTV */
+.ltv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Settings */
+.settings-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.settings-card h3 { font-size: 16px; margin-bottom: 16px; }
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.setting-row:last-child { border-bottom: none; }
+
+.setting-label { flex: 1; font-size: 13px; }
+.setting-label small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+
+.setting-input {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Space Mono', monospace;
+  width: 120px;
+  text-align: right;
+}
+
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Alert box */
+.alert {
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alert-info { background: rgba(41,121,255,0.1); border: 1px solid rgba(41,121,255,0.2); color: var(--blue); }
+.alert-success { background: rgba(0,200,83,0.1); border: 1px solid rgba(0,200,83,0.2); color: var(--green); }
+.alert-warn { background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.2); color: var(--orange); }
+
+@media (max-width: 1200px) {
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .segment-row { grid-template-columns: repeat(4, 1fr); }
+  .upload-steps { grid-template-columns: repeat(2, 1fr); }
+  .backup-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div>
+      <div class="logo">APPUESTA</div>
+      <div class="logo-sub">Player Intelligence & Churn Prevention</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="storage-indicator empty" id="storageIndicator">💾 No history</div>
+    <div class="snapshot-badge" id="snapshotBadge">No data loaded</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" data-tab="upload" onclick="switchTab('upload')">📥 Upload</button>
+    <button class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="tab" data-tab="migrations" onclick="switchTab('migrations')">🔄 Migrations</button>
+    <button class="tab" data-tab="players" onclick="switchTab('players')">👥 Players</button>
+    <button class="tab" data-tab="ltv" onclick="switchTab('ltv')">💰 LTV</button>
+    <button class="tab" data-tab="history" onclick="switchTab('history')">📈 Trends</button>
+    <button class="tab" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</button>
+  </div>
+
+  <!-- ============ UPLOAD TAB ============ -->
+  <div class="section active" id="tab-upload">
+    <div class="upload-instructions">
+      <h2>Weekly Data Upload</h2>
+      <p style="color:var(--text-muted); margin-bottom:20px; font-size:14px;">Upload your CSV files from the backoffice. The tool merges, deduplicates, segments, and compares against previous weeks automatically.</p>
+      <div class="upload-steps">
+        <div class="upload-step">
+          <div class="step-num">File 1 — Required</div>
+          <h3>All Depositors USD</h3>
+          <p>Global backoffice. All depositors, USD currency.</p>
+          <div class="file-status pending" id="status-usd">⏳ Waiting</div>
+        </div>
+        <div class="upload-step">
+          <div class="step-num">File 2 — Required</div>
+          <h3>All Depositors CLP</h3>
+          <p>Global backoffice. All depositors, CLP (auto-converted to USD).</p>
+          <div class="file-status pending" id="status-clp">⏳ Waiting</div>
+        </div>
+        <div class="upload-step">
+          <div class="step-num">File 3 — Required</div>
+          <h3>Betby Player Activity</h3>
+          <p>Betby sportsbook export. All player activity.</p>
+          <div class="file-status pending" id="status-betby">⏳ Waiting</div>
+        </div>
+        <div class="upload-step">
+          <div class="step-num">File 4 — Optional</div>
+          <h3>All Registrations</h3>
+          <p>Full registration list including non-depositors.</p>
+          <div class="file-status pending" id="status-reg">⏳ Waiting</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <h3>Drop CSV files here or click to browse</h3>
+      <p>Accepts .csv files — auto-detects which file is which</p>
+      <input type="file" id="fileInput" multiple accept=".csv" onchange="handleFiles(this.files)">
+    </div>
+
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="processBtn" onclick="processData()" disabled>Analyze & Segment Players</button>
+      <button class="btn btn-secondary" onclick="clearUpload()">Clear Files</button>
+      <span id="processStatus" style="font-size:13px; color:var(--text-muted);"></span>
+    </div>
+
+    <!-- BACKUP / RESTORE PANEL -->
+    <div class="backup-panel">
+      <h3>💾 Data Backup & Restore</h3>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Player-level history is stored in your browser AND auto-downloaded as JSON backups. If browser data is ever cleared, restore from your backup files here.
+      </p>
+      <div class="backup-grid">
+        <div class="backup-box">
+          <h4>📥 Restore from Backup</h4>
+          <p>Upload previously downloaded JSON backup files to restore all historical snapshots.</p>
+          <input type="file" id="restoreInput" accept=".json" multiple style="display:none;" onchange="restoreFromBackup(this.files)">
+          <button class="btn btn-blue btn-sm" onclick="document.getElementById('restoreInput').click()">Upload JSON Backups</button>
+        </div>
+        <div class="backup-box">
+          <h4>📤 Download Full Backup</h4>
+          <p>Download all historical snapshots as a single JSON file. Do this monthly.</p>
+          <button class="btn btn-green btn-sm" onclick="downloadFullBackup()">Download Backup</button>
+        </div>
+        <div class="backup-box">
+          <h4>📤 Download Latest Snapshot</h4>
+          <p>Re-download the most recent weekly snapshot file.</p>
+          <button class="btn btn-sm" style="background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3);" onclick="downloadLatestBackup()">Download Latest</button>
+        </div>
+        <div class="backup-box">
+          <h4>🗑️ Clear All Data</h4>
+          <p>Remove ALL data from this browser. Make sure you have a backup!</p>
+          <button class="btn btn-sm" style="background:rgba(255,87,34,0.15); color:var(--segment-atrisk); border:1px solid rgba(255,87,34,0.3);" onclick="clearAllHistory()">Clear Everything</button>
+        </div>
+      </div>
+      <div id="restoreStatus" style="margin-top:12px; font-size:13px;"></div>
+    </div>
+  </div>
+
+  <!-- ============ DASHBOARD TAB ============ -->
+  <div class="section" id="tab-dashboard">
+    <div id="dashboardAlert"></div>
+    <div class="kpi-row" id="kpiRow"></div>
+    <div class="segment-row" id="segmentRow"></div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Segment Distribution</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How your player base breaks down by lifecycle stage. Healthy mix = large Active+VIP, small Churned.</p><div class="chart-container"><canvas id="segmentPieChart"></canvas></div></div>
+      <div class="chart-card"><h3>Revenue by Segment (GGR)</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Total Gross Gaming Revenue per segment. VIP should dominate. Negative = players who won more than they lost.</p><div class="chart-container"><canvas id="revenueBarChart"></canvas></div></div>
+      <div class="chart-card"><h3>Player Value Distribution</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Histogram of individual player GGR. Players below $0 are net winners against the house.</p><div class="chart-container"><canvas id="valueDistChart"></canvas></div></div>
+      <div class="chart-card"><h3>Recency Distribution</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Days since each depositor last did something. Peaks at the right = retention problem.</p><div class="chart-container"><canvas id="recencyChart"></canvas></div></div>
+    </div>
+
+    <div class="definitions-panel">
+      <h3>Segment Definitions & Classification Criteria</h3>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Each player is assigned exactly one segment. All thresholds are adjustable in Settings.</p>
+      <div class="def-grid" id="defGrid"></div>
+    </div>
+
+    <div class="actions-panel"><h3 style="margin-bottom:16px;">🎯 Recommended CRM Actions This Week</h3><div id="actionsContainer"></div></div>
+  </div>
+
+  <!-- ============ MIGRATIONS TAB ============ -->
+  <div class="section" id="tab-migrations">
+    <div class="migration-panel">
+      <h3>🔄 Segment Migrations — This Week vs Last Week</h3>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Shows which players moved between segments since the previous snapshot. Requires at least 2 weekly snapshots.</p>
+      <div id="migrationSummary"></div>
+    </div>
+    <div class="chart-card full-width">
+      <h3>Migration Detail — Players Who Changed Segment</h3>
+      <div class="table-controls">
+        <select id="migrationFilter" class="search-input" style="width:200px;" onchange="renderMigrationTable()">
+          <option value="all">All Migrations</option>
+          <option value="degraded">Degraded (worse segment)</option>
+          <option value="improved">Improved (better segment)</option>
+        </select>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="exportMigrations()">📥 Export Migrations</button>
+      </div>
+      <div class="player-table-wrap"><table class="player-table" id="migrationTable"><thead><tr>
+        <th>Player ID</th><th>Username</th><th>Name</th><th>Email</th><th>Previous Segment</th><th>Current Segment</th><th>Direction</th><th>Total GGR</th><th>Fav Product</th>
+      </tr></thead><tbody id="migrationTableBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ============ PLAYERS TAB ============ -->
+  <div class="section" id="tab-players">
+    <div class="table-controls">
+      <button class="filter-btn active" data-filter="all" onclick="filterPlayers('all',this)">All</button>
+      <button class="filter-btn" data-filter="registered" onclick="filterPlayers('registered',this)">Registered</button>
+      <button class="filter-btn" data-filter="new" onclick="filterPlayers('new',this)">New</button>
+      <button class="filter-btn" data-filter="active" onclick="filterPlayers('active',this)">Active</button>
+      <button class="filter-btn" data-filter="vip" onclick="filterPlayers('vip',this)">VIP</button>
+      <button class="filter-btn" data-filter="cooling" onclick="filterPlayers('cooling',this)">Cooling</button>
+      <button class="filter-btn" data-filter="atrisk" onclick="filterPlayers('atrisk',this)">At-Risk</button>
+      <button class="filter-btn" data-filter="churned" onclick="filterPlayers('churned',this)">Churned</button>
+      <input class="search-input" type="text" placeholder="Search name, email, username..." oninput="searchPlayers(this.value)">
+      <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="exportSegment()">📥 Export Filtered CSV</button>
+    </div>
+    <div class="player-table-wrap">
+      <table class="player-table" id="playerTable"><thead><tr>
+        <th onclick="sortTable('segment')">Segment</th>
+        <th onclick="sortTable('id')">Player ID</th>
+        <th onclick="sortTable('username')">Username</th>
+        <th onclick="sortTable('name')">Name</th>
+        <th onclick="sortTable('email')">Email</th>
+        <th onclick="sortTable('registeredAt')">Registered</th>
+        <th onclick="sortTable('daysSinceActivity')">Days Inactive</th>
+        <th onclick="sortTable('totalDeposits')">Deposits $</th>
+        <th onclick="sortTable('depositCount')">Dep Count</th>
+        <th onclick="sortTable('totalNGR')">Total GGR</th>
+        <th onclick="sortTable('sportsBets')">Sports Bets</th>
+        <th onclick="sortTable('sportsGGR')">Sports GGR</th>
+        <th onclick="sortTable('casinoGGR')">Casino GGR</th>
+        <th onclick="sortTable('riskScore')">Risk</th>
+      </tr></thead><tbody id="playerTableBody"></tbody></table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- ============ LTV TAB ============ -->
+  <div class="section" id="tab-ltv">
+    <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);" id="ltvKpis"></div>
+    <div class="ltv-grid">
+      <div class="chart-card"><h3>LTV by Registration Cohort (Monthly)</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Average GGR per player by the month they registered. Shows which acquisition periods brought the most valuable players. Blue line = cohort size.</p><div class="chart-container"><canvas id="ltvCohortChart"></canvas></div></div>
+      <div class="chart-card"><h3>LTV by Value Percentile</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">GGR at each percentile. P50 = median player. P90/P99 = top performers. Large gap between P50 and P90 = high value concentration.</p><div class="chart-container"><canvas id="ltvPercentileChart"></canvas></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card full-width"><h3>LTV Trend Over Time</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How average and median LTV change across weekly snapshots. Rising = player base maturing. Falling = losing high-value or acquiring low-value. Needs 2+ snapshots.</p><div class="chart-container"><canvas id="ltvTrendChart"></canvas></div></div>
+      <div class="chart-card full-width"><h3>Cohort Retention Overview</h3><div id="cohortHeatmap" style="overflow-x:auto;"></div></div>
+      <div class="chart-card full-width"><h3>Revenue Concentration (Pareto)</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">What % of total revenue comes from the top X% of players. Further from the diagonal = more concentrated. Industry norm: top 10% = 50-70% of revenue.</p><div class="chart-container"><canvas id="paretoChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ============ TRENDS TAB ============ -->
+  <div class="section" id="tab-history">
+    <div class="chart-card"><h3>📈 Segment Trends Over Time</h3><p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Each weekly upload adds a data point. Shows how segments evolve.</p><div class="chart-container" style="height:350px;"><canvas id="trendChart"></canvas></div></div>
+    <div class="chart-card"><h3>📋 Snapshot History</h3><div id="historyList" style="font-size:13px;color:var(--text-muted);">No snapshots yet.</div></div>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-outline btn-sm" onclick="exportTrendsCSV()">📥 Export Trends CSV</button>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS TAB ============ -->
+  <div class="section" id="tab-settings">
+    <div class="settings-card">
+      <h3>Segmentation Thresholds</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Adjust thresholds. Changes apply on next data processing.</p>
+      <div class="setting-row"><div class="setting-label">Active Max Days<small>Max days since last activity for "Active"</small></div><input class="setting-input" type="number" id="set-activeDays" value="7"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
+      <div class="setting-row"><div class="setting-label">Cooling Max Days<small>Max days inactive for "Cooling"</small></div><input class="setting-input" type="number" id="set-coolingDays" value="15"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
+      <div class="setting-row"><div class="setting-label">At-Risk Max Days<small>Max days inactive for "At-Risk"</small></div><input class="setting-input" type="number" id="set-atriskDays" value="30"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
+      <div class="setting-row"><div class="setting-label">Churned Days<small>Days inactive = "Churned"</small></div><input class="setting-input" type="number" id="set-churnDays" value="31"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
+      <div class="setting-row"><div class="setting-label">VIP Percentile<small>Top N% of active players by GGR</small></div><input class="setting-input" type="number" id="set-vipPct" value="10"><span style="font-size:12px;color:var(--text-muted);">%</span></div>
+      <div class="setting-row"><div class="setting-label">VIP Min Deposits $<small>Alternative qualifier: total deposits ≥ this (with positive GGR)</small></div><input class="setting-input" type="number" id="set-vipMinDep" value="1000"><span style="font-size:12px;color:var(--text-muted);">USD</span></div>
+      <div class="setting-row"><div class="setting-label">Min Deposits for Active<small>Min deposit count to graduate from "New"</small></div><input class="setting-input" type="number" id="set-minDeposits" value="3"><span style="font-size:12px;color:var(--text-muted);">deposits</span></div>
+      <div class="setting-row"><div class="setting-label">Min Sports Bets for Active<small>Alternative qualifier</small></div><input class="setting-input" type="number" id="set-minBets" value="5"><span style="font-size:12px;color:var(--text-muted);">bets</span></div>
+      <button class="btn btn-primary" style="margin-top:16px;" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+//  GLOBAL STATE
+// ================================================================
+const STORAGE_KEY = 'appuesta_pi_v3';
+const SETTINGS_KEY = 'appuesta_pi_settings_v3';
+const MAX_SNAPSHOTS = 52; // 1 year of weekly snapshots
+
+let rawFiles = { usd: null, clp: null, betby: null, reg: null };
+let allPlayers = [];        // Current week's processed player data
+let previousPlayers = {};   // Last week's player map { id: { segment, totalNGR, ... } }
+let migrations = [];        // Players who changed segment
+let currentFilter = 'all';
+let currentSearch = '';
+let currentSort = { key: 'totalNGR', dir: 'desc' };
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let charts = {};
+
+// Segment ordering (lower = healthier/better)
+// VIP > Active > New > Cooling > At-Risk > Churned > Registered (never engaged)
+const SEGMENT_ORDER = { vip: 0, active: 1, new: 2, cooling: 3, atrisk: 4, churned: 5, registered: 6 };
+const SEGMENT_NAMES = { registered: 'Registered Only', new: 'New', active: 'Active', vip: 'VIP / Whale', cooling: 'Cooling', atrisk: 'At-Risk', churned: 'Churned' };
+const SEGMENT_COLORS = { registered: '#7c4dff', new: '#2979ff', active: '#00c853', vip: '#ffc107', cooling: '#ff9800', atrisk: '#ff5722', churned: '#9e9e9e' };
+
+let settings = { newDays: 30, activeDays: 7, coolingDays: 15, atriskDays: 30, churnDays: 31, vipPct: 10, vipMinDep: 1000, minDeposits: 3, minBets: 5 };
+
+// ================================================================
+//  STORAGE ENGINE
+// ================================================================
+// Stores an array of weekly snapshots, each containing:
+// { date, label, segments: { seg: {count, ngr} }, players: { id: { segment, totalNGR, depositCount, sportsBets, ... } } }
+
+function loadAllSnapshots() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveAllSnapshots(snapshots) {
+  try {
+    if (snapshots.length > MAX_SNAPSHOTS) snapshots = snapshots.slice(-MAX_SNAPSHOTS);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
+  } catch(e) { console.warn('Storage save failed:', e); }
+}
+
+function getLastSnapshot() {
+  const snaps = loadAllSnapshots();
+  return snaps.length > 0 ? snaps[snaps.length - 1] : null;
+}
+
+function saveCurrentSnapshot() {
+  const snapshots = loadAllSnapshots();
+  const now = new Date();
+  const label = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  
+  // Build player map for storage (slim version — only fields needed for delta calc)
+  // IMPORTANT: Store actual dates so da can be recomputed on reload
+  const playerMap = {};
+  allPlayers.forEach(p => {
+    playerMap[p.id] = {
+      seg: p.segment,
+      ngr: p.totalNGR,
+      dep: p.totalDeposits,
+      dc: p.depositCount,
+      sb: p.sportsBets,
+      sg: p.sportsGGR,
+      cg: p.casinoGGR,
+      da: p.daysSinceActivity,
+      rs: p.riskScore,
+      un: p.username || '',
+      nm: p.name || '',
+      em: p.email || '',
+      pt: p.productType || '',
+      cur: p.currency || '',
+      // Store actual dates as ISO strings for proper recomputation
+      lad: p.lastActivityDate ? p.lastActivityDate.toISOString() : null,
+      ldd: p.lastDepositDate ? p.lastDepositDate.toISOString() : null,
+      slb: p.sportsLastBet ? p.sportsLastBet.toISOString() : null,
+      rad: p.registeredAt ? p.registeredAt.toISOString() : null,
+      fdd: p.firstDepositDate ? p.firstDepositDate.toISOString() : null
+    };
+  });
+  
+  // Segment summary
+  const segments = {};
+  Object.keys(SEGMENT_NAMES).forEach(s => {
+    const players = allPlayers.filter(p => p.segment === s);
+    segments[s] = { count: players.length, ngr: players.reduce((sum, p) => sum + p.totalNGR, 0) };
+  });
+  
+  // LTV metrics for trend tracking
+  const depForLtv = allPlayers.filter(p => p.hasAnyActivity);
+  const ltvData = {
+    avg: depForLtv.length > 0 ? depForLtv.reduce((s,p) => s+p.totalNGR, 0) / depForLtv.length : 0,
+    med: getMedian(depForLtv.map(p => p.totalNGR)),
+    total: depForLtv.reduce((s,p) => s+p.totalNGR, 0),
+    depositors: depForLtv.length
+  };
+  
+  const snapshot = { date: now.toISOString(), label, totalPlayers: allPlayers.length, segments, players: playerMap, ltv: ltvData };
+  snapshots.push(snapshot);
+  saveAllSnapshots(snapshots);
+  
+  updateStorageIndicator();
+  
+  // Auto-download backup
+  autoDownloadBackup(snapshot);
+}
+
+function autoDownloadBackup(snapshot) {
+  const dateStr = new Date(snapshot.date).toISOString().split('T')[0];
+  const data = JSON.stringify(snapshot, null, 0);
+  const blob = new Blob([data], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `appuesta_snapshot_${dateStr}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function downloadFullBackup() {
+  const snapshots = loadAllSnapshots();
+  if (snapshots.length === 0) { alert('No snapshots to backup.'); return; }
+  const data = JSON.stringify(snapshots, null, 0);
+  const blob = new Blob([data], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `appuesta_full_backup_${new Date().toISOString().split('T')[0]}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function downloadLatestBackup() {
+  const snap = getLastSnapshot();
+  if (!snap) { alert('No snapshots available.'); return; }
+  const data = JSON.stringify(snap, null, 0);
+  const blob = new Blob([data], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `appuesta_snapshot_${new Date(snap.date).toISOString().split('T')[0]}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function restoreFromBackup(files) {
+  const status = document.getElementById('restoreStatus');
+  status.innerHTML = '<span class="spinner"></span> Restoring...';
+  
+  let existingSnapshots = loadAllSnapshots();
+  const existingDates = new Set(existingSnapshots.map(s => s.date));
+  let imported = 0;
+  let processed = 0;
+  
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        
+        if (Array.isArray(parsed)) {
+          // Full backup file (array of snapshots)
+          parsed.forEach(snap => {
+            if (snap.date && snap.players && !existingDates.has(snap.date)) {
+              existingSnapshots.push(snap);
+              existingDates.add(snap.date);
+              imported++;
+            }
+          });
+        } else if (parsed.date && parsed.players) {
+          // Single snapshot file
+          if (!existingDates.has(parsed.date)) {
+            existingSnapshots.push(parsed);
+            existingDates.add(parsed.date);
+            imported++;
+          }
+        }
+      } catch(err) {
+        console.warn('Failed to parse file:', file.name, err);
+      }
+      
+      processed++;
+      if (processed === files.length) {
+        // Sort by date and save
+        existingSnapshots.sort((a, b) => new Date(a.date) - new Date(b.date));
+        saveAllSnapshots(existingSnapshots);
+        updateStorageIndicator();
+        renderHistory();
+        
+        // Auto-load the latest snapshot into the dashboard
+        const latest = getLastSnapshot();
+        if (latest) {
+          loadSnapIntoUI(latest);
+          status.innerHTML = `<span class="alert alert-success">✅ Restored ${imported} new snapshot(s). Total: ${existingSnapshots.length} weeks. Dashboard loaded with latest data.</span>`;
+          switchTab('dashboard');
+        } else {
+          status.innerHTML = `<span class="alert alert-success">✅ Restored ${imported} new snapshot(s). Total: ${existingSnapshots.length} weeks.</span>`;
+        }
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function clearAllHistory() {
+  if (!confirm('⚠️ Delete ALL historical data from this browser?\n\nMake sure you downloaded a full backup first!\n\nThis cannot be undone.')) return;
+  if (!confirm('Are you absolutely sure? All weekly snapshots will be permanently deleted.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  previousPlayers = {};
+  migrations = [];
+  allPlayers = [];
+  updateStorageIndicator();
+  renderHistory();
+  // Clear all UI elements
+  document.getElementById('snapshotBadge').textContent = 'No data loaded';
+  ['kpiRow','segmentRow','actionsContainer','migrationSummary','playerTableBody','ltvKpis','cohortHeatmap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  document.getElementById('pagination').innerHTML = '';
+  // Destroy all charts
+  Object.values(charts).forEach(c => { if(c && c.destroy) c.destroy(); });
+  charts = {};
+  switchTab('upload');
+  alert('All data cleared.');
+}
+
+function updateStorageIndicator() {
+  const el = document.getElementById('storageIndicator');
+  const snaps = loadAllSnapshots();
+  if (snaps.length === 0) {
+    el.className = 'storage-indicator empty';
+    el.textContent = '💾 No history';
+  } else {
+    const sizeMB = (new Blob([localStorage.getItem(STORAGE_KEY) || '']).size / 1024 / 1024).toFixed(1);
+    if (parseFloat(sizeMB) > 3.5) {
+      el.className = 'storage-indicator warn';
+      el.textContent = `💾 ${snaps.length} wks (${sizeMB}MB ⚠️)`;
+    } else {
+      el.className = 'storage-indicator ok';
+      el.textContent = `💾 ${snaps.length} wks (${sizeMB}MB)`;
+    }
+  }
+}
+
+// ================================================================
+//  INIT
+// ================================================================
+try {
+  const saved = localStorage.getItem(SETTINGS_KEY);
+  if (saved) { settings = { ...settings, ...JSON.parse(saved) }; }
+  Object.keys(settings).forEach(k => { const el = document.getElementById('set-'+k); if (el) el.value = settings[k]; });
+} catch(e) {}
+
+function saveSettings() {
+  Object.keys(settings).forEach(k => { const el = document.getElementById('set-'+k); if (el) settings[k] = parseInt(el.value) || settings[k]; });
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  if (allPlayers.length > 0) { segmentPlayers(); computeMigrations(); renderAll(); }
+  alert('Settings saved!');
+}
+
+updateStorageIndicator();
+renderHistory();
+
+// Load previous snapshot for delta comparison
+const lastSnap = getLastSnapshot();
+if (lastSnap) previousPlayers = lastSnap.players || {};
+
+// ================================================================
+//  AUTO-LOAD LAST SNAPSHOT ON PAGE OPEN
+// ================================================================
+function loadSnapIntoUI(snap) {
+  // Rebuild allPlayers from stored snapshot player map
+  const allSnaps = loadAllSnapshots();
+  const idx = allSnaps.findIndex(s => s.date === snap.date);
+  previousPlayers = {};
+  if (idx > 0) previousPlayers = allSnaps[idx-1].players || {};
+  
+  const snapDate = new Date(snap.date);
+  
+  allPlayers = Object.entries(snap.players).map(([id, p]) => {
+    // Restore actual dates from snapshot (if available), else null
+    const lastActivityDate = p.lad ? new Date(p.lad) : null;
+    const lastDepositDate = p.ldd ? new Date(p.ldd) : null;
+    const sportsLastBet = p.slb ? new Date(p.slb) : null;
+    const registeredAt = p.rad ? new Date(p.rad) : null;
+    const firstDepositDate = p.fdd ? new Date(p.fdd) : null;
+    
+    // Recompute daysSinceActivity relative to the SNAPSHOT date (not today)
+    // This keeps the snapshot internally consistent
+    let daysSinceActivity;
+    if (lastActivityDate && !isNaN(lastActivityDate.getTime())) {
+      daysSinceActivity = Math.floor((snapDate - lastActivityDate) / (1000*60*60*24));
+    } else {
+      // Fall back to stored da for legacy snapshots without dates
+      daysSinceActivity = p.da || p.daysSinceActivity || 9999;
+    }
+    
+    return {
+      id, username: p.un || p.username || '', name: p.nm || p.name || '', email: p.em || p.email || '',
+      segment: 'registered', // Will be recalculated by segmentPlayers()
+      totalNGR: p.ngr || p.totalNGR || 0, totalDeposits: p.dep || p.totalDeposits || 0,
+      depositCount: p.dc || p.depositCount || 0, sportsBets: p.sb || p.sportsBets || 0,
+      sportsGGR: p.sg || p.sportsGGR || 0, casinoGGR: p.cg || p.casinoGGR || 0,
+      daysSinceActivity, riskScore: 0,
+      productType: p.pt || p.productType || '', currency: p.cur || p.currency || '',
+      registeredAt, lastActivityDate, firstActivityDate: firstDepositDate || registeredAt,
+      lastDepositDate, firstDepositDate,
+      lastWithdrawalDate: null,
+      totalWithdrawals: 0, casinoBets: 0, casinoWins: 0,
+      sportsTurnover: 0, sportsAvgStake: 0, sportsActiveDays: 0,
+      sportsLastBet, sportsFirstBet: null,
+      sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
+      hasAnyActivity: (p.dc||p.depositCount||0) > 0 || (p.sb||p.sportsBets||0) > 0,
+      hasDeposited: (p.dc||p.depositCount||0) > 0, hasSportsBets: (p.sb||p.sportsBets||0) > 0,
+      daysSinceFirstDeposit: firstDepositDate ? Math.floor((snapDate - firstDepositDate)/(1000*60*60*24)) : 999,
+      tenure: registeredAt ? Math.floor((snapDate - registeredAt)/(1000*60*60*24)) : 0
+    };
+  });
+  
+  // Re-run segmentation with CURRENT rules (not stored segments)
+  segmentPlayers();
+  computeMigrations();
+  renderAll();
+  document.getElementById('snapshotBadge').textContent = `${allPlayers.length} players · ${snap.label || new Date(snap.date).toLocaleDateString()}`;
+}
+
+// Auto-load on page open
+(function() {
+  const snap = getLastSnapshot();
+  if (snap) {
+    loadSnapIntoUI(snap);
+    switchTab('dashboard');
+  }
+})();
+
+// ================================================================
+//  TAB NAV
+// ================================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+// ================================================================
+//  FILE HANDLING
+// ================================================================
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    if (!file.name.toLowerCase().endsWith('.csv')) return;
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: function(results) {
+        const cols = (results.meta.fields || []).join(',').toLowerCase();
+        if (cols.includes('lifetime_ggr') && cols.includes('ext_player_id')) {
+          rawFiles.betby = results.data;
+          updateFileStatus('betby', file.name, results.data.length);
+        } else if (cols.includes('totalggrcasino') || cols.includes('totaldepositamount') || cols.includes('registeredat')) {
+          const depositors = results.data.filter(r => (parseInt(r.totalDepositCount)||0) > 0).length;
+          const total = results.data.length;
+          const ratio = total > 0 ? depositors/total : 0;
+          if (ratio < 0.3 && total > 300) {
+            rawFiles.reg = results.data; updateFileStatus('reg', file.name, total);
+          } else {
+            const fn = file.name.toLowerCase();
+            if (fn.includes('clp')) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
+            else if (fn.includes('usd') || fn.includes('report')) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
+            else if (!rawFiles.usd) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
+            else if (!rawFiles.clp) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
+            else { rawFiles.reg = results.data; updateFileStatus('reg', file.name, total); }
+          }
+        } else if (cols.includes('email') && cols.includes('id')) {
+          rawFiles.reg = results.data; updateFileStatus('reg', file.name, results.data.length);
+        }
+        checkReady();
+      }
+    });
+  });
+}
+
+function updateFileStatus(type, filename, count) {
+  const map = { usd:'status-usd', clp:'status-clp', betby:'status-betby', reg:'status-reg' };
+  const el = document.getElementById(map[type]);
+  el.className = 'file-status loaded';
+  el.textContent = `✅ ${filename} (${count} rows)`;
+}
+
+function checkReady() { document.getElementById('processBtn').disabled = !(rawFiles.usd || rawFiles.clp || rawFiles.betby); }
+
+function clearUpload() {
+  rawFiles = { usd:null, clp:null, betby:null, reg:null };
+  ['status-usd','status-clp','status-betby','status-reg'].forEach(id => { const el = document.getElementById(id); el.className = 'file-status pending'; el.textContent = '⏳ Waiting'; });
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('processStatus').textContent = '';
+}
+
+// ================================================================
+//  DATA PROCESSING
+// ================================================================
+function parseMoney(val) { if (!val) return 0; return parseFloat(String(val).replace(/[^0-9.\-]/g,'')) || 0; }
+function parseDate(val) { if (!val) return null; const d = new Date(String(val).replace(/\//g,'-').trim()); return isNaN(d.getTime()) ? null : d; }
+function daysSince(date) { if (!date) return 9999; return Math.floor((new Date() - date)/(1000*60*60*24)); }
+
+function processData() {
+  const status = document.getElementById('processStatus');
+  
+  // Warn if sportsbook file is missing
+  if (!rawFiles.betby) {
+    if (!confirm('⚠️ No BetBy sportsbook file uploaded!\n\nWithout it, players who are active on sportsbook but haven\'t deposited recently will appear as Cooling, At-Risk, or Churned.\n\nContinue anyway with deposit-only segmentation?')) {
+      status.textContent = 'Cancelled — upload the BetBy file for accurate segmentation.';
+      return;
+    }
+  }
+  
+  status.innerHTML = '<span class="spinner"></span> Processing...';
+  setTimeout(() => {
+    try {
+      // Load previous snapshot for delta comparison
+      const prevSnap = getLastSnapshot();
+      previousPlayers = prevSnap ? prevSnap.players || {} : {};
+      
+      mergeAndSegment();
+      computeMigrations();
+      saveCurrentSnapshot();
+      renderAll();
+      const warnings = [];
+      if (!rawFiles.betby) warnings.push('⚠️ No sportsbook data');
+      if (!rawFiles.reg) warnings.push('ℹ️ No registration file');
+      const warnStr = warnings.length > 0 ? ` (${warnings.join(', ')})` : '';
+      status.textContent = `✅ ${allPlayers.length} players processed · Backup downloaded${warnStr}`;
+      switchTab('dashboard');
+      document.getElementById('snapshotBadge').textContent = `${allPlayers.length} players · ${new Date().toLocaleDateString()}`;
+    } catch(e) { status.textContent = `❌ Error: ${e.message}`; console.error(e); }
+  }, 100);
+}
+
+function mergeAndSegment() {
+  const pm = {};
+
+  function addBackoffice(rows, curr) {
+    if (!rows) return;
+    rows.forEach(r => {
+      const id = String(r.id||'').trim(); if (!id) return;
+      pm[id] = {
+        id, username: pm[id]?.username||'', name: String(r.name||'').trim(), email: String(r.email||'').trim(),
+        registeredAt: parseDate(r.registeredAt), firstDepositDate: parseDate(r.firstDepositDate),
+        lastDepositDate: parseDate(r.lastDepositDate), lastWithdrawalDate: parseDate(r.lastWithdrawalDate),
+        totalDeposits: parseMoney(r.totalDepositAmount), totalWithdrawals: parseMoney(r.totalWithdrawalAmount),
+        depositCount: parseInt(r.totalDepositCount)||0, casinoGGR: parseMoney(r.totalGGRCasino),
+        casinoBets: parseMoney(r.totalCasinoBetAmount), casinoWins: parseMoney(r.totalCasinoWinAmount),
+        sportsBets: pm[id]?.sportsBets||0, sportsTurnover: pm[id]?.sportsTurnover||0,
+        sportsGGR: pm[id]?.sportsGGR||0, sportsAvgStake: pm[id]?.sportsAvgStake||0,
+        sportsActiveDays: pm[id]?.sportsActiveDays||0, sportsLastBet: pm[id]?.sportsLastBet||null,
+        sportsFirstBet: pm[id]?.sportsFirstBet||null, sportsMargin: pm[id]?.sportsMargin||0,
+        sportsFreebets: pm[id]?.sportsFreebets||0, sportsComboShare: pm[id]?.sportsComboShare||0,
+        currency: curr, source: 'backoffice'
+      };
+    });
+  }
+
+  if (rawFiles.reg) addBackoffice(rawFiles.reg, 'USD');
+  addBackoffice(rawFiles.usd, 'USD');
+  addBackoffice(rawFiles.clp, 'CLP');
+
+  if (rawFiles.betby) {
+    rawFiles.betby.forEach(r => {
+      const id = String(r.ext_player_id||'').trim();
+      const username = String(r.username||'').trim();
+      const curr = String(r.currency||'').includes('CLP') ? 'CLP' : 'USD';
+      if (pm[id]) {
+        pm[id].username = username;
+      } else {
+        pm[id] = {
+          id, username, name:'', email:'', registeredAt: parseDate(r.lifetime_first_bet_date),
+          firstDepositDate: parseDate(r.lifetime_first_bet_date), lastDepositDate: null,
+          lastWithdrawalDate: null, totalDeposits:0, totalWithdrawals:0, depositCount:0,
+          casinoGGR:0, casinoBets:0, casinoWins:0, sportsBets:0, sportsTurnover:0, sportsGGR:0,
+          sportsAvgStake:0, sportsActiveDays:0, sportsLastBet:null, sportsFirstBet:null,
+          sportsMargin:0, sportsFreebets:0, sportsComboShare:0, currency:curr, source:'betby-only'
+        };
+      }
+      pm[id].sportsBets = parseInt(r.lifetime_bets)||0;
+      pm[id].sportsTurnover = parseFloat(r.lifetime_turnover)||0;
+      pm[id].sportsGGR = parseFloat(r.lifetime_ggr)||0;
+      pm[id].sportsAvgStake = parseFloat(r.lifetime_avg_stake)||0;
+      pm[id].sportsActiveDays = parseInt(r.lifetime_active_days)||0;
+      pm[id].sportsLastBet = parseDate(r.lifetime_last_bet_date);
+      pm[id].sportsFirstBet = parseDate(r.lifetime_first_bet_date);
+      pm[id].sportsMargin = parseFloat(r.lifetime_margin)||0;
+      pm[id].sportsFreebets = parseInt(r.lifetime_freebets)||0;
+      pm[id].sportsComboShare = parseFloat(r.lifetime_combo_share)||0;
+    });
+  }
+
+  allPlayers = Object.values(pm).map(p => {
+    p.totalNGR = (p.sportsGGR||0) + (p.casinoGGR||0);
+    const dates = [p.lastDepositDate, p.sportsLastBet, p.lastWithdrawalDate].filter(Boolean);
+    p.lastActivityDate = dates.length > 0 ? new Date(Math.max(...dates.map(d=>d.getTime()))) : null;
+    p.daysSinceActivity = daysSince(p.lastActivityDate);
+    const firsts = [p.firstDepositDate, p.sportsFirstBet, p.registeredAt].filter(Boolean);
+    p.firstActivityDate = firsts.length > 0 ? new Date(Math.min(...firsts.map(d=>d.getTime()))) : p.registeredAt;
+    p.daysSinceFirstDeposit = daysSince(p.firstDepositDate);
+    p.tenure = daysSince(p.registeredAt);
+    p.hasDeposited = p.depositCount > 0;
+    p.hasSportsBets = p.sportsBets > 0;
+    p.hasAnyActivity = p.hasDeposited || p.hasSportsBets;
+    if (p.sportsGGR>0 && p.casinoGGR>0) p.productType='Both';
+    else if (p.sportsGGR>0) p.productType='Sports';
+    else if (p.casinoGGR>0||p.casinoBets>0) p.productType='Casino';
+    else p.productType='None';
+    return p;
+  });
+
+  segmentPlayers();
+}
+
+function segmentPlayers() {
+  // VIP threshold: top N% by GGR among active players WITH positive GGR
+  const activePlayers = allPlayers.filter(p => p.hasAnyActivity && p.daysSinceActivity <= settings.activeDays);
+  const positiveGGR = activePlayers.filter(p => p.totalNGR > 0).map(p => p.totalNGR).sort((a,b) => b-a);
+  const vipIdx = Math.floor(positiveGGR.length*(settings.vipPct/100));
+  const vipGGRThreshold = positiveGGR[vipIdx] || 0;
+
+  allPlayers.forEach(p => {
+    p.segment = 'registered'; p.riskScore = 0;
+    if (!p.hasAnyActivity) return;
+    const d = p.daysSinceActivity;
+    
+    // 1. Churned (31+ days)
+    if (d >= settings.churnDays) { p.segment = 'churned'; p.riskScore = 100; }
+    // 2. At-Risk (16-30 days)
+    else if (d > settings.coolingDays && d <= settings.atriskDays) { p.segment = 'atrisk'; p.riskScore = 60+((d-settings.coolingDays)/(settings.atriskDays-settings.coolingDays))*40; }
+    // 3. Cooling (8-15 days)
+    else if (d > settings.activeDays && d <= settings.coolingDays) { p.segment = 'cooling'; p.riskScore = 30+((d-settings.activeDays)/(settings.coolingDays-settings.activeDays))*30; }
+    // 4. Active window (≤ 7 days) — check VIP first, then Active, then New
+    else if (d <= settings.activeDays) {
+      // VIP: positive GGR AND (top 10% GGR OR deposits >= threshold)
+      const isVIP = p.totalNGR > 0 && (p.totalNGR >= vipGGRThreshold && vipGGRThreshold > 0 || p.totalDeposits >= settings.vipMinDep);
+      if (isVIP) { p.segment = 'vip'; p.riskScore = 5; }
+      // Active: enough deposits or bets to show engagement
+      else if (p.depositCount >= settings.minDeposits || p.sportsBets >= settings.minBets) { p.segment = 'active'; p.riskScore = 10; }
+      // New: everything else with activity (low deposit/bet count, still onboarding)
+      else { p.segment = 'new'; p.riskScore = 15; }
+    }
+    p.riskScore = Math.min(100, Math.max(0, Math.round(p.riskScore)));
+    
+    // Attach previous segment for comparison
+    const prev = previousPlayers[p.id];
+    p.prevSegment = prev ? (prev.seg || prev.segment || null) : null;
+    p.prevNGR = prev ? (prev.ngr || prev.totalNGR || null) : null;
+    p.ngrDelta = prev ? p.totalNGR - (prev.ngr || prev.totalNGR || 0) : null;
+    p.prevDepositCount = prev ? (prev.dc || prev.depositCount || null) : null;
+    p.newDepositsThisWeek = prev ? p.depositCount - (prev.dc || prev.depositCount || 0) : null;
+    p.prevSportsBets = prev ? (prev.sb || prev.sportsBets || null) : null;
+    p.newBetsThisWeek = prev ? p.sportsBets - (prev.sb || prev.sportsBets || 0) : null;
+  });
+  
+  // Update segment definitions display
+  updateDefGrid();
+}
+
+function updateDefGrid() {
+  const dg = document.getElementById('defGrid');
+  if (!dg) return;
+  dg.innerHTML = `
+    <div class="def-item seg-registered"><h4>🟣 Registered Only</h4><p>Signed up but never deposited or bet. Top of funnel.</p><div class="criteria">Criteria: depositCount = 0 AND sportsBets = 0</div></div>
+    <div class="def-item seg-vip"><h4>🟡 VIP / Whale</h4><p>High-value, profitable, engaged players. Protect at all costs — disproportionate revenue contribution.</p><div class="criteria">Criteria: Active (≤ ${settings.activeDays}d) + GGR > $0 + (Top ${settings.vipPct}% GGR OR Deposits ≥ $${settings.vipMinDep.toLocaleString()})</div></div>
+    <div class="def-item seg-active"><h4>🟢 Active</h4><p>Regular activity within ${settings.activeDays} days with proven engagement. Core revenue base.</p><div class="criteria">Criteria: Last activity ≤ ${settings.activeDays}d + (${settings.minDeposits}+ deposits OR ${settings.minBets}+ bets)</div></div>
+    <div class="def-item seg-new"><h4>🔵 New</h4><p>Has activity but hasn't yet proven engagement. Still onboarding — 2nd deposit bonus critical.</p><div class="criteria">Criteria: Active but < ${settings.minDeposits} deposits AND < ${settings.minBets} bets</div></div>
+    <div class="def-item seg-cooling"><h4>🟠 Cooling</h4><p>Activity declining. ${settings.activeDays+1}-${settings.coolingDays} days inactive. Critical intervention window — highest ROI.</p><div class="criteria">Criteria: Last activity ${settings.activeDays+1}-${settings.coolingDays}d ago</div></div>
+    <div class="def-item seg-atrisk"><h4>🔴 At-Risk</h4><p>Significant disengagement. ${settings.coolingDays+1}-${settings.atriskDays} days inactive. Approaching churn.</p><div class="criteria">Criteria: Last activity ${settings.coolingDays+1}-${settings.atriskDays}d ago</div></div>
+    <div class="def-item seg-churned"><h4>⚫ Churned</h4><p>No activity for ${settings.churnDays}+ days. Win-back selectively by value.</p><div class="criteria">Criteria: Last activity ${settings.churnDays}+d ago</div></div>`;
+}
+
+// ================================================================
+//  MIGRATION COMPUTATION
+// ================================================================
+function computeMigrations() {
+  migrations = [];
+  if (Object.keys(previousPlayers).length === 0) return;
+
+  allPlayers.forEach(p => {
+    if (!p.prevSegment || p.prevSegment === p.segment) return;
+    const prevRank = SEGMENT_ORDER[p.prevSegment] ?? 99;
+    const currRank = SEGMENT_ORDER[p.segment] ?? 99;
+    // Lower rank = better segment. Moving to lower rank = improved, higher = degraded.
+    // Special: registered is rank 6 (unengaged) — any move FROM registered = improved (activation).
+    let direction;
+    if (p.prevSegment === 'registered') {
+      direction = 'improved'; // Any engagement from registered = good
+    } else if (p.segment === 'registered') {
+      direction = 'degraded'; // Should not really happen, but defensive
+    } else {
+      direction = currRank < prevRank ? 'improved' : 'degraded';
+    }
+
+    migrations.push({
+      id: p.id, username: p.username, name: p.name, email: p.email,
+      from: p.prevSegment, to: p.segment, direction,
+      totalNGR: p.totalNGR, productType: p.productType || 'None'
+    });
+  });
+}
+
+// ================================================================
+//  RENDER ALL
+// ================================================================
+function renderAll() {
+  renderDashboard();
+  renderPlayerTable();
+  renderLTV();
+  renderMigrations();
+  renderHistory();
+}
+
+// ================================================================
+//  DASHBOARD
+// ================================================================
+function renderDashboard() {
+  const depositors = allPlayers.filter(p => p.hasAnyActivity);
+  const totalNGR = depositors.reduce((s,p) => s+p.totalNGR, 0);
+  const totalDep = depositors.reduce((s,p) => s+p.totalDeposits, 0);
+  const totalWd = depositors.reduce((s,p) => s+p.totalWithdrawals, 0);
+  const avgNGR = depositors.length > 0 ? totalNGR/depositors.length : 0;
+  const regToDepRate = allPlayers.length > 0 ? (depositors.length/allPlayers.length*100) : 0;
+  const atRisk = allPlayers.filter(p => p.segment==='atrisk').length;
+  const cooling = allPlayers.filter(p => p.segment==='cooling').length;
+
+  // Week-over-week deltas — compare against PREVIOUS snapshot (second-to-last)
+  const allSnaps = loadAllSnapshots();
+  const prevSnap = allSnaps.length >= 2 ? allSnaps[allSnaps.length - 2] : null;
+  const hasPrev = !!prevSnap;
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Players</div><div class="kpi-value">${allPlayers.length.toLocaleString()}</div><div class="kpi-sub">${depositors.length} depositors (${regToDepRate.toFixed(1)}% conversion)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total GGR</div><div class="kpi-value">$${fmt(totalNGR)}</div><div class="kpi-sub">Sports + Casino GGR combined</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg GGR / Player</div><div class="kpi-value">$${fmt(avgNGR)}</div><div class="kpi-sub">Depositors only</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Deposits</div><div class="kpi-value">$${fmt(totalDep)}</div><div class="kpi-sub">Net after withdrawals: $${fmt(totalDep-totalWd)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">⚠️ Attention Needed</div><div class="kpi-value" style="color:var(--orange);">${cooling+atRisk}</div><div class="kpi-sub">${cooling} cooling + ${atRisk} at-risk</div></div>
+    <div class="kpi-card"><div class="kpi-label">Segment Migrations</div><div class="kpi-value">${migrations.length}</div><div class="kpi-sub">${migrations.filter(m=>m.direction==='degraded').length} degraded · ${migrations.filter(m=>m.direction==='improved').length} improved</div></div>
+  `;
+
+  // Segment cards with week-over-week delta
+  const segments = Object.keys(SEGMENT_NAMES);
+  let segHtml = '';
+  segments.forEach(seg => {
+    const players = allPlayers.filter(p => p.segment === seg);
+    const count = players.length;
+    const pct = allPlayers.length > 0 ? (count/allPlayers.length*100).toFixed(1) : 0;
+    const rev = players.reduce((s,p) => s+p.totalNGR, 0);
+    const revPct = totalNGR > 0 ? (rev/totalNGR*100).toFixed(1) : 0;
+    
+    let deltaHtml = '';
+    if (hasPrev && prevSnap.segments && prevSnap.segments[seg]) {
+      const prev = prevSnap.segments[seg].count;
+      const diff = count - prev;
+      if (diff > 0) deltaHtml = `<div class="segment-delta up">▲ +${diff} vs last week</div>`;
+      else if (diff < 0) deltaHtml = `<div class="segment-delta down">▼ ${diff} vs last week</div>`;
+      else deltaHtml = `<div class="segment-delta neutral">= Same as last week</div>`;
+    } else if (hasPrev) {
+      // Segment didn't exist in previous snapshot (new segment or was 0)
+      if (count > 0) deltaHtml = `<div class="segment-delta up">▲ +${count} (new)</div>`;
+    }
+    // If no previous snapshot at all, show nothing (first upload)
+
+    segHtml += `<div class="segment-card seg-${seg}" onclick="switchTab('players');filterPlayers('${seg}',document.querySelector('.filter-btn[data-filter=${seg}]'))">
+      <div class="segment-name">${SEGMENT_NAMES[seg]}</div><div class="segment-count">${count}</div><div class="segment-pct">${pct}% of total</div>
+      ${deltaHtml}
+      <div class="segment-revenue">GGR: <span>$${fmt(rev)}</span> (${revPct}%)</div></div>`;
+  });
+  document.getElementById('segmentRow').innerHTML = segHtml;
+
+  // Alert
+  const alertEl = document.getElementById('dashboardAlert');
+  if (hasPrev) {
+    const degraded = migrations.filter(m => m.direction==='degraded').length;
+    if (degraded > 0) alertEl.innerHTML = `<div class="alert alert-warn">⚠️ ${degraded} player(s) moved to worse segments since last week. <a href="#" onclick="switchTab('migrations');return false;" style="color:inherit;font-weight:700;">View migrations →</a></div>`;
+    else alertEl.innerHTML = `<div class="alert alert-success">✅ No players degraded since last week. ${migrations.filter(m=>m.direction==='improved').length} improved.</div>`;
+  } else {
+    alertEl.innerHTML = `<div class="alert alert-info">ℹ️ First snapshot — upload again next week to see week-over-week comparisons and segment migrations.</div>`;
+  }
+
+  renderCharts(segments, totalNGR);
+  renderActions();
+}
+
+function renderCharts(segments, totalNGR) {
+  const segCounts = segments.map(s => allPlayers.filter(p => p.segment===s).length);
+  if (charts.pie) charts.pie.destroy();
+  charts.pie = new Chart(document.getElementById('segmentPieChart'), {
+    type:'doughnut', data:{ labels:segments.map(s=>SEGMENT_NAMES[s]), datasets:[{data:segCounts,backgroundColor:segments.map(s=>SEGMENT_COLORS[s]),borderWidth:0}] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#8a8d91',font:{size:11,family:'DM Sans'},padding:10}}}}
+  });
+
+  const segRev = segments.map(s => allPlayers.filter(p=>p.segment===s).reduce((sum,p)=>sum+p.totalNGR,0));
+  if (charts.revBar) charts.revBar.destroy();
+  charts.revBar = new Chart(document.getElementById('revenueBarChart'), {
+    type:'bar', data:{ labels:segments.map(s=>SEGMENT_NAMES[s]), datasets:[{data:segRev,backgroundColor:segments.map(s=>SEGMENT_COLORS[s]),borderRadius:6}]},
+    options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}}, x:{ticks:{color:'#8a8d91',font:{size:10}},grid:{display:false}}}}
+  });
+
+  const dep = allPlayers.filter(p=>p.hasAnyActivity);
+  const buckets = [{l:'< $0',a:-Infinity,b:0},{l:'$0-10',a:0,b:10},{l:'$10-50',a:10,b:50},{l:'$50-100',a:50,b:100},{l:'$100-500',a:100,b:500},{l:'$500+',a:500,b:Infinity}];
+  if (charts.valueDist) charts.valueDist.destroy();
+  charts.valueDist = new Chart(document.getElementById('valueDistChart'), {
+    type:'bar', data:{ labels:buckets.map(b=>b.l), datasets:[{data:buckets.map(b=>dep.filter(p=>p.totalNGR>=b.a&&p.totalNGR<b.b).length),backgroundColor:['#ff5722','#ff9800','#ffc107','#8bc34a','#00c853','#00bcd4'],borderRadius:6}]},
+    options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ticks:{color:'#8a8d91'},grid:{color:'rgba(255,255,255,0.04)'}}, x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+  });
+
+  const recB = [{l:'0-7d',a:0,b:7},{l:'8-14d',a:8,b:14},{l:'15-21d',a:15,b:21},{l:'22-30d',a:22,b:30},{l:'31-60d',a:31,b:60},{l:'60+d',a:61,b:Infinity}];
+  if (charts.recency) charts.recency.destroy();
+  charts.recency = new Chart(document.getElementById('recencyChart'), {
+    type:'bar', data:{ labels:recB.map(b=>b.l), datasets:[{data:recB.map(b=>dep.filter(p=>p.daysSinceActivity>=b.a&&p.daysSinceActivity<=b.b).length),backgroundColor:['#00c853','#8bc34a','#ffc107','#ff9800','#ff5722','#9e9e9e'],borderRadius:6}]},
+    options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ticks:{color:'#8a8d91'},grid:{color:'rgba(255,255,255,0.04)'}}, x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+  });
+}
+
+function renderActions() {
+  const c = document.getElementById('actionsContainer');
+  const counts = {}; Object.keys(SEGMENT_NAMES).forEach(s => counts[s] = allPlayers.filter(p=>p.segment===s).length);
+  const highValChurned = allPlayers.filter(p=>p.segment==='churned'&&p.totalNGR>50).length;
+  const newNoDep2 = allPlayers.filter(p=>p.segment==='new'&&p.depositCount===1).length;
+  const degraded = migrations.filter(m=>m.direction==='degraded');
+  let h = '';
+
+  if (degraded.length > 0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(255,152,0,0.15);color:var(--orange);">🔄</div><div class="action-content"><h4>${degraded.length} Players Degraded This Week</h4><p>These players moved to worse segments. Check the Migrations tab for the full list with emails — prioritize outreach to high-GGR players who moved to Cooling or At-Risk.</p></div></div>`;
+  if (counts.atrisk>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(255,87,34,0.15);color:var(--segment-atrisk);">🔥</div><div class="action-content"><h4>URGENT: ${counts.atrisk} At-Risk Players</h4><p>30-59 days inactive. Send personalized win-back offers — free bets for sports, deposit match for casino. They'll churn within weeks without action.</p></div></div>`;
+  if (counts.cooling>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(255,152,0,0.15);color:var(--segment-cooling);">🌡️</div><div class="action-content"><h4>${counts.cooling} Cooling Players — Highest ROI Window</h4><p>15-29 days inactive. Push notifications, reload bonuses, odds boosts. This is the cheapest segment to retain.</p></div></div>`;
+  if (newNoDep2>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(41,121,255,0.15);color:var(--segment-new);">💎</div><div class="action-content"><h4>${newNoDep2} New Players — No 2nd Deposit</h4><p>2nd deposit bonus offer. Players who make a 2nd deposit are 3-5x more likely to become long-term.</p></div></div>`;
+  if (counts.registered>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(124,77,255,0.15);color:var(--segment-registered);">📧</div><div class="action-content"><h4>${counts.registered} Never Deposited (${(counts.registered/allPlayers.length*100).toFixed(0)}%)</h4><p>Funnel leak. Welcome email sequence: risk-free first bet or first deposit match. Converting 5% = ${Math.round(counts.registered*0.05)} new depositors.</p></div></div>`;
+  if (highValChurned>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(158,158,158,0.15);color:var(--segment-churned);">🏆</div><div class="action-content"><h4>${highValChurned} High-Value Churned (GGR > $50)</h4><p>Worth a premium win-back — personal WhatsApp/email from VIP manager with generous reactivation bonus.</p></div></div>`;
+  if (counts.vip>0) h += `<div class="action-item"><div class="action-icon" style="background:rgba(255,193,7,0.15);color:var(--segment-vip);">👑</div><div class="action-content"><h4>Protect ${counts.vip} VIP Players</h4><p>Profitable + high deposit volume. Personal account management, enhanced limits, exclusive promotions, priority withdrawals.</p></div></div>`;
+  c.innerHTML = h || '<p style="color:var(--text-muted);">Upload data to see recommendations.</p>';
+}
+
+// ================================================================
+//  MIGRATIONS TAB
+// ================================================================
+function renderMigrations() {
+  const summary = document.getElementById('migrationSummary');
+  if (migrations.length === 0) {
+    summary.innerHTML = Object.keys(previousPlayers).length === 0
+      ? '<div class="alert alert-info">ℹ️ No previous snapshot to compare against. Upload data again next week to see migrations.</div>'
+      : '<div class="alert alert-success">✅ No players changed segments this week.</div>';
+    document.getElementById('migrationTableBody').innerHTML = '';
+    return;
+  }
+
+  // Group migrations by from → to
+  const flows = {};
+  migrations.forEach(m => {
+    const key = `${m.from} → ${m.to}`;
+    if (!flows[key]) flows[key] = { from:m.from, to:m.to, count:0, totalNGR:0 };
+    flows[key].count++; flows[key].totalNGR += m.totalNGR;
+  });
+
+  let h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">';
+  Object.values(flows).sort((a,b)=>b.count-a.count).forEach(f => {
+    const isDegraded = (f.from === 'registered') ? false : (SEGMENT_ORDER[f.to] > SEGMENT_ORDER[f.from]);
+    const color = isDegraded ? 'var(--segment-atrisk)' : 'var(--green)';
+    h += `<div class="migration-item" style="background:var(--bg-surface);border-radius:8px;padding:12px;">
+      <span class="migration-count" style="color:${color};">${f.count}</span>
+      <span class="segment-badge ${f.from}">${f.from}</span>
+      <span class="migration-arrow">→</span>
+      <span class="segment-badge ${f.to}">${f.to}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;">$${fmt(f.totalNGR)} NGR</span>
+    </div>`;
+  });
+  h += '</div>';
+  summary.innerHTML = h;
+
+  renderMigrationTable();
+}
+
+function renderMigrationTable() {
+  const filter = document.getElementById('migrationFilter').value;
+  let data = [...migrations];
+  if (filter === 'degraded') data = data.filter(m => m.direction === 'degraded');
+  if (filter === 'improved') data = data.filter(m => m.direction === 'improved');
+  data.sort((a,b) => b.totalNGR - a.totalNGR);
+
+  document.getElementById('migrationTableBody').innerHTML = data.map(m => {
+    const prodIcon = m.productType === 'Sports' ? '⚽' : m.productType === 'Casino' ? '🎰' : m.productType === 'Both' ? '⚽🎰' : '—';
+    return `<tr>
+    <td>${m.id}</td><td style="font-family:'DM Sans',sans-serif;">${m.username||'—'}</td>
+    <td style="font-family:'DM Sans',sans-serif;">${m.name||'—'}</td><td style="font-family:'DM Sans',sans-serif;font-size:11px;">${m.email||'—'}</td>
+    <td><span class="segment-badge ${m.from}">${m.from}</span></td>
+    <td><span class="segment-badge ${m.to}">${m.to}</span></td>
+    <td style="color:${m.direction==='degraded'?'var(--segment-atrisk)':'var(--green)'};">${m.direction==='degraded'?'▼ Degraded':'▲ Improved'}</td>
+    <td>$${fmt(m.totalNGR)}</td>
+    <td>${prodIcon} ${m.productType||'None'}</td></tr>`;
+  }).join('');
+}
+
+function exportMigrations() {
+  if (migrations.length===0) return alert('No migrations to export.');
+  const h = ['Player ID','Username','Name','Email','Previous Segment','Current Segment','Direction','Total GGR','Favorite Product'];
+  const rows = migrations.map(m=>[m.id,m.username,m.name,m.email,m.from,m.to,m.direction,m.totalNGR.toFixed(2),m.productType||'None']);
+  downloadCSV([h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'), `appuesta_migrations_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+// ================================================================
+//  PLAYER TABLE
+// ================================================================
+function renderPlayerTable() {
+  let f = [...allPlayers];
+  if (currentFilter!=='all') f = f.filter(p=>p.segment===currentFilter);
+  if (currentSearch) { const q=currentSearch.toLowerCase(); f=f.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.username||'').toLowerCase().includes(q)||(p.id||'').includes(q)); }
+  f.sort((a,b)=>{ let va=a[currentSort.key],vb=b[currentSort.key]; if(typeof va==='string')va=(va||'').toLowerCase(); if(typeof vb==='string')vb=(vb||'').toLowerCase(); if(va==null)va=currentSort.dir==='asc'?Infinity:-Infinity; if(vb==null)vb=currentSort.dir==='asc'?Infinity:-Infinity; return currentSort.dir==='asc'?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0); });
+
+  const totalPages = Math.ceil(f.length/PAGE_SIZE);
+  if(currentPage>totalPages) currentPage=1;
+  const page = f.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  document.getElementById('playerTableBody').innerHTML = page.map(p => {
+    const rc = p.riskScore<30?'#00c853':p.riskScore<60?'#ffc107':'#ff5722';
+    const prevBadge = p.prevSegment && p.prevSegment!==p.segment ? `<span class="prev-badge">was: ${p.prevSegment}</span>` : '';
+    return `<tr>
+      <td><span class="segment-badge ${p.segment}">${p.segment}</span>${prevBadge}</td>
+      <td>${p.id}</td><td style="font-family:'DM Sans',sans-serif;">${p.username||'—'}</td>
+      <td style="font-family:'DM Sans',sans-serif;">${p.name||'—'}</td>
+      <td style="font-family:'DM Sans',sans-serif;font-size:11px;">${p.email||'—'}</td>
+      <td>${p.registeredAt?p.registeredAt.toLocaleDateString():'—'}</td>
+      <td>${p.daysSinceActivity<9999?p.daysSinceActivity+'d':'—'}</td>
+      <td>$${fmt(p.totalDeposits)}</td><td>${p.depositCount}</td>
+      <td>$${fmt(p.totalNGR)}</td><td>${p.sportsBets||'—'}</td>
+      <td>$${fmt(p.sportsGGR)}</td><td>$${fmt(p.casinoGGR)}</td>
+      <td><div class="risk-bar"><div class="risk-bar-fill" style="width:${p.riskScore}%;background:${rc};"></div></div>${p.riskScore}</td></tr>`;
+  }).join('');
+
+  let ph = `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹</button>`;
+  ph += `<span style="font-size:12px;color:var(--text-muted);">Page ${currentPage}/${totalPages} (${f.length} players)</span>`;
+  ph += `<button class="page-btn" ${currentPage>=totalPages?'disabled':''} onclick="goPage(${currentPage+1})">›</button>`;
+  document.getElementById('pagination').innerHTML = ph;
+}
+
+function filterPlayers(seg,btn) { currentFilter=seg; currentPage=1; document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active'); else document.querySelector(`.filter-btn[data-filter="${seg}"]`)?.classList.add('active'); renderPlayerTable(); }
+function searchPlayers(q) { currentSearch=q; currentPage=1; renderPlayerTable(); }
+function sortTable(key) { if(currentSort.key===key) currentSort.dir=currentSort.dir==='asc'?'desc':'asc'; else currentSort={key,dir:'desc'}; renderPlayerTable(); }
+function goPage(p) { currentPage=p; renderPlayerTable(); }
+
+function exportSegment() {
+  let data=[...allPlayers]; if(currentFilter!=='all')data=data.filter(p=>p.segment===currentFilter); if(currentSearch){const q=currentSearch.toLowerCase();data=data.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.username||'').toLowerCase().includes(q));}
+  const h=['Segment','Previous Segment','Player ID','Username','Name','Email','Registered','Days Inactive','Deposits USD','Dep Count','Total GGR','Sports Bets','Sports GGR','Casino GGR','Risk Score','Product Type','Currency','New Deposits This Week','New Bets This Week','GGR Delta'];
+  const rows=data.map(p=>[p.segment,p.prevSegment||'',p.id,p.username,p.name,p.email,p.registeredAt?p.registeredAt.toISOString().split('T')[0]:'',p.daysSinceActivity<9999?p.daysSinceActivity:'',p.totalDeposits.toFixed(2),p.depositCount,p.totalNGR.toFixed(2),p.sportsBets,p.sportsGGR.toFixed(2),p.casinoGGR.toFixed(2),p.riskScore,p.productType,p.currency,p.newDepositsThisWeek??'',p.newBetsThisWeek??'',(p.ngrDelta!=null)?p.ngrDelta.toFixed(2):'']);
+  downloadCSV([h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'), `appuesta_${currentFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function downloadCSV(csv, fn) { const b=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const l=document.createElement('a'); l.href=URL.createObjectURL(b); l.download=fn; l.click(); }
+
+// ================================================================
+//  LTV
+// ================================================================
+function renderLTV() {
+  const dep = allPlayers.filter(p=>p.hasAnyActivity);
+  if(dep.length===0) return;
+  const totalNGR = dep.reduce((s,p)=>s+p.totalNGR,0);
+  const positivePlayers = dep.filter(p => p.totalNGR > 0);
+  const totalPositiveNGR = positivePlayers.reduce((s,p) => s+p.totalNGR, 0);
+  const negativeCount = dep.filter(p => p.totalNGR < 0).length;
+  const avgLTV = dep.length > 0 ? totalNGR/dep.length : 0;
+  const medNGR = getMedian(dep.map(p=>p.totalNGR));
+  const sorted = [...dep].sort((a,b)=>b.totalNGR-a.totalNGR);
+  const t10c = Math.max(1,Math.ceil(sorted.length*0.1));
+  const t10r = sorted.slice(0,t10c).reduce((s,p)=>s+p.totalNGR,0);
+  const t10s = totalPositiveNGR>0?(t10r/totalPositiveNGR*100):0;
+
+  document.getElementById('ltvKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Avg LTV</div><div class="kpi-value">$${fmt(avgLTV)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
+    <div class="kpi-card"><div class="kpi-label">Median LTV</div><div class="kpi-value">$${fmt(medNGR)}</div><div class="kpi-sub">50th percentile</div></div>
+    <div class="kpi-card"><div class="kpi-label">Top 10% Revenue</div><div class="kpi-value">${t10s.toFixed(1)}%</div><div class="kpi-sub">${t10c} players (of positive GGR)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Negative GGR Players</div><div class="kpi-value">${negativeCount}</div><div class="kpi-sub">${dep.length?((negativeCount/dep.length)*100).toFixed(1):0}% net winners vs house</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg Deposit</div><div class="kpi-value">$${fmt(dep.reduce((s,p)=>s+p.totalDeposits,0)/dep.length)}</div><div class="kpi-sub">Per depositor</div></div>`;
+
+  // Cohort
+  const cohorts={};
+  dep.forEach(p=>{ if(!p.registeredAt)return; const k=p.registeredAt.getFullYear()+'-'+String(p.registeredAt.getMonth()+1).padStart(2,'0'); if(!cohorts[k])cohorts[k]={n:0,ngr:0,dep:0}; cohorts[k].n++; cohorts[k].ngr+=p.totalNGR; cohorts[k].dep+=p.totalDeposits; });
+  const ck=Object.keys(cohorts).sort();
+  if(charts.ltvCohort)charts.ltvCohort.destroy();
+  charts.ltvCohort = new Chart(document.getElementById('ltvCohortChart'),{type:'bar',data:{labels:ck,datasets:[{label:'Avg LTV',data:ck.map(k=>cohorts[k].ngr/cohorts[k].n),backgroundColor:'#e4002b',borderRadius:6,yAxisID:'y'},{label:'Cohort Size',data:ck.map(k=>cohorts[k].n),type:'line',borderColor:'#2979ff',pointBackgroundColor:'#2979ff',yAxisID:'y1',tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{position:'left',ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Avg LTV',color:'#8a8d91'}},y1:{position:'right',ticks:{color:'#8a8d91'},grid:{display:false},title:{display:true,text:'Players',color:'#8a8d91'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}});
+
+  // Percentile
+  const sn=[...dep].sort((a,b)=>a.totalNGR-b.totalNGR);
+  const pcts=[10,25,50,75,90,95,99];
+  const pv=pcts.map(p=>{const i=Math.floor(sn.length*p/100);return sn[Math.min(i,sn.length-1)].totalNGR;});
+  if(charts.ltvPct)charts.ltvPct.destroy();
+  charts.ltvPct = new Chart(document.getElementById('ltvPercentileChart'),{type:'bar',data:{labels:pcts.map(p=>'P'+p),datasets:[{label:'GGR',data:pv,backgroundColor:pcts.map(p=>p>=90?'#ffc107':p>=75?'#00c853':p>=50?'#2979ff':'#8a8d91'),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}});
+
+  // LTV Trend Over Time
+  const allSnaps = loadAllSnapshots();
+  if (allSnaps.length >= 2) {
+    const trendLabels = allSnaps.map(s => new Date(s.date).toLocaleDateString());
+    const avgData = allSnaps.map(s => s.ltv ? s.ltv.avg : 0);
+    const medData = allSnaps.map(s => s.ltv ? s.ltv.med : 0);
+    const totalData = allSnaps.map(s => s.ltv ? s.ltv.total : 0);
+    if (charts.ltvTrend) charts.ltvTrend.destroy();
+    charts.ltvTrend = new Chart(document.getElementById('ltvTrendChart'), {
+      type: 'line',
+      data: { labels: trendLabels, datasets: [
+        { label: 'Avg LTV', data: avgData, borderColor: '#e4002b', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4 },
+        { label: 'Median LTV', data: medData, borderColor: '#2979ff', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, borderDash: [5,5] },
+        { label: 'Total GGR', data: totalData, borderColor: '#ffc107', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, yAxisID: 'y1' }
+      ]},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } } },
+        scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Per Player', color: '#8a8d91' } },
+          y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { display: false }, title: { display: true, text: 'Total GGR', color: '#8a8d91' } },
+          x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+    });
+  } else {
+    const trendCanvas = document.getElementById('ltvTrendChart');
+    if (trendCanvas) trendCanvas.parentElement.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;">Need 2+ weekly snapshots to show LTV trend.</p>';
+  }
+
+  // Pareto
+  const ps=[...dep].sort((a,b)=>b.totalNGR-a.totalNGR);
+  let run=0; const cum=ps.map(p=>{run+=p.totalNGR;return run;});
+  const cumP=cum.map(v=>totalNGR>0?(v/totalNGR*100):0);
+  const plP=ps.map((_,i)=>((i+1)/ps.length*100));
+  const step=Math.max(1,Math.floor(ps.length/50));
+  const sP=plP.filter((_,i)=>i%step===0||i===plP.length-1);
+  const sC=cumP.filter((_,i)=>i%step===0||i===cumP.length-1);
+  if(charts.pareto)charts.pareto.destroy();
+  charts.pareto = new Chart(document.getElementById('paretoChart'),{type:'line',data:{labels:sP.map(v=>v.toFixed(0)+'%'),datasets:[{label:'Cumulative Revenue %',data:sC,borderColor:'#e4002b',backgroundColor:'rgba(228,0,43,0.1)',fill:true,tension:0.3,pointRadius:0},{label:'Perfect Equality',data:sP,borderColor:'rgba(255,255,255,0.2)',borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'% Revenue',color:'#8a8d91'}},x:{ticks:{color:'#8a8d91',maxTicksLimit:10},grid:{display:false},title:{display:true,text:'% Players',color:'#8a8d91'}}}}});
+
+  // Cohort heatmap
+  const hm=document.getElementById('cohortHeatmap');
+  if(ck.length===0){hm.innerHTML='<p style="color:var(--text-muted);">Not enough data.</p>';return;}
+  let th='<table class="player-table" style="font-size:12px;"><thead><tr><th>Cohort</th><th>Players</th><th>Avg GGR</th><th>Avg Deposit</th><th>% Active</th><th>% Churned</th></tr></thead><tbody>';
+  ck.forEach(k=>{const cp=allPlayers.filter(p=>{if(!p.registeredAt||!p.hasAnyActivity)return false;const pk=p.registeredAt.getFullYear()+'-'+String(p.registeredAt.getMonth()+1).padStart(2,'0');return pk===k;});const t=cp.length;if(!t)return;const ac=cp.filter(p=>['active','vip','new'].includes(p.segment)).length;const cc=cp.filter(p=>p.segment==='churned').length;const ap=(ac/t*100),chp=(cc/t*100);th+=`<tr><td style="font-weight:600;">${k}</td><td>${t}</td><td>$${fmt(cp.reduce((s,p)=>s+p.totalNGR,0)/t)}</td><td>$${fmt(cp.reduce((s,p)=>s+p.totalDeposits,0)/t)}</td><td style="background:${ap>60?'rgba(0,200,83,0.3)':ap>30?'rgba(255,193,7,0.3)':'rgba(255,87,34,0.3)'};">${ap.toFixed(1)}%</td><td style="background:${chp>50?'rgba(255,87,34,0.3)':chp>25?'rgba(255,193,7,0.3)':'rgba(0,200,83,0.3)'};">${chp.toFixed(1)}%</td></tr>`;});
+  th+='</tbody></table>';hm.innerHTML=th;
+}
+
+// ================================================================
+//  TRENDS / HISTORY
+// ================================================================
+function renderHistory() {
+  const snaps = loadAllSnapshots();
+  if (snaps.length < 1) { document.getElementById('historyList').textContent='No snapshots yet. Process data weekly.'; return; }
+
+  const labels = snaps.map(s => new Date(s.date).toLocaleDateString());
+  const segs = ['active','vip','cooling','atrisk','churned','new'];
+  const datasets = segs.map(s=>({ label:s.charAt(0).toUpperCase()+s.slice(1), data:snaps.map(h=>h.segments[s]?.count||0), borderColor:SEGMENT_COLORS[s], backgroundColor:'transparent', tension:0.3, pointRadius:4 }));
+  if(charts.trend)charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{ticks:{color:'#8a8d91'},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}});
+
+  let lh='<table class="player-table" style="font-size:12px;"><thead><tr><th>Date</th><th>Total</th><th>New</th><th>Active</th><th>VIP</th><th>Cooling</th><th>At-Risk</th><th>Churned</th><th>Reg Only</th><th>Avg LTV</th></tr></thead><tbody>';
+  [...snaps].reverse().forEach(h=>{lh+=`<tr><td>${new Date(h.date).toLocaleDateString()}</td><td>${h.totalPlayers}</td><td>${h.segments.new?.count||0}</td><td>${h.segments.active?.count||0}</td><td>${h.segments.vip?.count||0}</td><td>${h.segments.cooling?.count||0}</td><td>${h.segments.atrisk?.count||0}</td><td>${h.segments.churned?.count||0}</td><td>${h.segments.registered?.count||0}</td><td>${h.ltv?'$'+fmt(h.ltv.avg):'—'}</td></tr>`;});
+  lh+='</tbody></table>';
+  document.getElementById('historyList').innerHTML=lh;
+}
+
+function exportTrendsCSV() {
+  const snaps=loadAllSnapshots(); if(!snaps.length)return alert('No history.');
+  const h=['Date','Total','Registered','New','Active','VIP','Cooling','At-Risk','Churned'];
+  const rows=snaps.map(s=>[new Date(s.date).toISOString().split('T')[0],s.totalPlayers,s.segments.registered?.count||0,s.segments.new?.count||0,s.segments.active?.count||0,s.segments.vip?.count||0,s.segments.cooling?.count||0,s.segments.atrisk?.count||0,s.segments.churned?.count||0]);
+  downloadCSV([h,...rows].map(r=>r.join(',')).join('\n'),`appuesta_trends_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+// ================================================================
+//  UTILS
+// ================================================================
+function fmt(n) { if(n==null||isNaN(n))return '0'; const a=Math.abs(n); if(a>=1e6)return(n/1e6).toFixed(1)+'M'; if(a>=1e3)return(n/1e3).toFixed(1)+'K'; return n.toFixed(a<10?2:0); }
+function getMedian(arr) { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+</script>
+</body>
+</html>
