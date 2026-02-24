@@ -1164,7 +1164,9 @@ function loadSnapIntoUI(snap) {
       daysSinceActivity = Math.floor((snapDate - lastActivityDate) / (1000*60*60*24));
     } else {
       // Fall back to stored da for legacy snapshots without dates
-      daysSinceActivity = p.da || p.daysSinceActivity || 9999;
+      // CRITICAL: Use explicit null check, NOT ||, because da=0 is valid (player active today) but falsy in JS
+      const storedDa = p.da !== undefined && p.da !== null ? p.da : (p.daysSinceActivity !== undefined && p.daysSinceActivity !== null ? p.daysSinceActivity : 9999);
+      daysSinceActivity = storedDa;
     }
     
     return {
