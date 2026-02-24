@@ -911,12 +911,74 @@ function loadAllSnapshots() {
 function saveAllSnapshots(snapshots) {
   try {
     if (snapshots.length > MAX_SNAPSHOTS) snapshots = snapshots.slice(-MAX_SNAPSHOTS);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
-  } catch(e) { console.warn('Storage save failed:', e); }
+    
+    // Smart compression: only keep full player data for the last 2 snapshots.
+    // Older snapshots are trimmed to summary-only (segments, ltv, totalPlayers).
+    // This prevents localStorage from hitting the 5MB limit.
+    const compressed = snapshots.map((snap, idx) => {
+      const isRecent = idx >= snapshots.length - 2;
+      if (isRecent || !snap.players) return snap;
+      // Trim old snapshot: keep everything except the huge players map
+      const { players, ...summary } = snap;
+      summary._trimmed = true;
+      return summary;
+    });
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(compressed));
+    hideStorageWarning();
+  } catch(e) {
+    // If still too large, try keeping only 1 full snapshot
+    console.warn('Storage save failed, compressing further:', e);
+    try {
+      const fallback = snapshots.map((snap, idx) => {
+        const isLatest = idx === snapshots.length - 1;
+        if (isLatest || !snap.players) return snap;
+        const { players, ...summary } = snap;
+        summary._trimmed = true;
+        return summary;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
+      showStorageWarning('partial');
+    } catch(e2) {
+      console.error('Storage save failed even after compression:', e2);
+      showStorageWarning('full');
+    }
+  }
+}
+
+function showStorageWarning(level) {
+  let existing = document.getElementById('storageAlert');
+  if (!existing) {
+    existing = document.createElement('div');
+    existing.id = 'storageAlert';
+    existing.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;padding:16px 24px;border-radius:12px;font-size:13px;font-weight:600;max-width:700px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;';
+    document.body.appendChild(existing);
+  }
+  if (level === 'full') {
+    existing.style.background = '#2d1215';
+    existing.style.border = '1px solid #e4002b';
+    existing.style.color = '#ff6b6b';
+    existing.innerHTML = '🚨 <div><strong>Storage full — snapshot NOT saved!</strong><br><span style="font-weight:400;font-size:12px;color:#ccc;">Your player data has grown beyond browser limits. Your JSON backup was still downloaded, but localStorage could not save. Please share this error with your developer to upgrade storage.</span></div><button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:1px solid #ff6b6b;color:#ff6b6b;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">Dismiss</button>';
+  } else {
+    existing.style.background = '#2d2515';
+    existing.style.border = '1px solid #ff9800';
+    existing.style.color = '#ffb74d';
+    existing.innerHTML = '⚠️ <div><strong>Storage nearly full — older history compressed</strong><br><span style="font-weight:400;font-size:12px;color:#ccc;">Only the latest snapshot has full player data. Migration comparison with last week may be limited. Your JSON backup was still downloaded safely.</span></div><button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:1px solid #ffb74d;color:#ffb74d;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">Dismiss</button>';
+  }
+}
+
+function hideStorageWarning() {
+  const existing = document.getElementById('storageAlert');
+  if (existing) existing.remove();
 }
 
 function getLastSnapshot() {
   const snaps = loadAllSnapshots();
+  // Find the latest snapshot that has full player data (not trimmed)
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    if (snaps[i].players && !snaps[i]._trimmed) return snaps[i];
+  }
+  // Fallback: return the very last one even if trimmed
   return snaps.length > 0 ? snaps[snaps.length - 1] : null;
 }
 
@@ -927,9 +989,21 @@ function saveCurrentSnapshot() {
   
   // Build player map for storage (slim version — only fields needed for delta calc)
   // IMPORTANT: Store actual dates so da can be recomputed on reload
+  // OPTIMIZATION: Strip zero/empty fields and minimize registered-only players
   const playerMap = {};
   allPlayers.forEach(p => {
-    playerMap[p.id] = {
+    // For registered-only players, store minimal identity data
+    if (p.segment === 'registered') {
+      const entry = { seg: 'registered' };
+      if (p.name) entry.nm = p.name;
+      if (p.email) entry.em = p.email;
+      if (p.currency && p.currency !== 'USD') entry.cur = p.currency;
+      playerMap[p.id] = entry;
+      return;
+    }
+    
+    // For active players, build full record but skip zero/empty/null values
+    const full = {
       seg: p.segment,
       ngr: p.totalNGR,
       dep: p.totalDeposits,
@@ -951,6 +1025,15 @@ function saveCurrentSnapshot() {
       rad: p.registeredAt ? p.registeredAt.toISOString() : null,
       fdd: p.firstDepositDate ? p.firstDepositDate.toISOString() : null
     };
+    // Strip null/zero/empty to save space
+    const slim = {};
+    for (const [k, v] of Object.entries(full)) {
+      if (v !== null && v !== 0 && v !== '' && v !== 'None') slim[k] = v;
+    }
+    // Always keep seg and da (da=0 is valid and important!)
+    slim.seg = full.seg;
+    if (full.da === 0) slim.da = 0;
+    playerMap[p.id] = slim;
   });
   
   // Segment summary
@@ -1141,6 +1224,11 @@ if (lastSnap) previousPlayers = lastSnap.players || {};
 //  AUTO-LOAD LAST SNAPSHOT ON PAGE OPEN
 // ================================================================
 function loadSnapIntoUI(snap) {
+  if (!snap.players || snap._trimmed) {
+    document.getElementById('snapshotBadge').textContent = `${snap.label || 'Unknown'} (summary only — no player data)`;
+    return;
+  }
+  
   // Rebuild allPlayers from stored snapshot player map
   const allSnaps = loadAllSnapshots();
   const idx = allSnaps.findIndex(s => s.date === snap.date);
