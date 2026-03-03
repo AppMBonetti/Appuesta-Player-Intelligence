@@ -572,8 +572,17 @@ body {
 .page-btn:hover { border-color: var(--red); color: var(--text); }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* Insights */
-.insight-view { transition: opacity 0.2s ease; }
+/* LTV */
+.ltv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.insight-btn { background: var(--bg-card) !important; border: 1px solid var(--border) !important; color: var(--text-muted) !important; transition: all 0.2s; }
+.insight-btn.active { background: rgba(228,0,43,0.15) !important; border-color: var(--red) !important; color: var(--red) !important; }
+.insight-btn:hover { border-color: var(--red) !important; }
+.insight-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.insight-kpi { background: var(--bg-card); border-radius: 10px; padding: 14px; border: 1px solid var(--border); }
+.insight-kpi .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.insight-kpi .value { font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700; }
+.insight-kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.insight-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 10px; padding: 16px; color: #ffc107; font-size: 13px; text-align: center; }
 
 /* Settings */
 .settings-card {
@@ -789,7 +798,7 @@ body {
         <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="exportMigrations()">📥 Export Migrations</button>
       </div>
       <div class="player-table-wrap"><table class="player-table" id="migrationTable"><thead><tr>
-        <th>Player ID</th><th>Username</th><th>Name</th><th>Email</th><th>Previous Segment</th><th>Current Segment</th><th>Direction</th><th>Total GGR</th><th>Fav Product</th>
+        <th>Player ID</th><th>Username</th><th>Name</th><th>Email</th><th>Previous Segment</th><th>Current Segment</th><th>Direction</th><th>Total GGR</th>
       </tr></thead><tbody id="migrationTableBody"></tbody></table></div>
     </div>
   </div>
@@ -831,38 +840,81 @@ body {
 
   <!-- ============ INSIGHTS TAB ============ -->
   <div class="section" id="tab-insights">
-    <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);" id="insightKpis"></div>
-    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="insightSubNav">
-      <button class="btn btn-sm btn-primary" onclick="showInsightView('profitability')" data-view="profitability">Time to Profit</button>
-      <button class="btn btn-sm btn-outline" onclick="showInsightView('churnTiming')" data-view="churnTiming">Churn Timing</button>
-      <button class="btn btn-sm btn-outline" onclick="showInsightView('cohorts')" data-view="cohorts">Cohort Retention</button>
-      <button class="btn btn-sm btn-outline" onclick="showInsightView('signals')" data-view="signals">Behavioral Signals</button>
-      <button class="btn btn-sm btn-outline" onclick="showInsightView('winback')" data-view="winback">Win-back</button>
-      <button class="btn btn-sm btn-outline" onclick="showInsightView('concentration')" data-view="concentration">Revenue</button>
+    <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);" id="insightsKpis"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="insightNav">
+      <button class="btn btn-sm insight-btn active" onclick="showInsightView('profitability')" data-view="profitability">💰 Time to Profit</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('churn')" data-view="churn">⏱ Churn Timing</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('cohort')" data-view="cohort">📅 Monthly Cohort</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('signals')" data-view="signals">🔔 Behavioral Signals</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('winback')" data-view="winback">🔄 Win-back</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('concentration')" data-view="concentration">📊 Revenue Concentration</button>
     </div>
+
+    <!-- View: Time to Profitability -->
     <div class="insight-view" id="view-profitability">
-      <div class="chart-card full-width"><h3>Days from First Deposit to Positive GGR</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How quickly do players become profitable? Shows distribution of player tenure grouped by profitability status.</p><div class="chart-container" style="height:300px;"><canvas id="profitTimingChart"></canvas></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;"><div class="chart-card"><h3>Profitability Breakdown</h3><div id="profitSummary" style="font-size:13px;color:var(--text-secondary);"></div></div><div class="chart-card"><h3>GGR Distribution by Tenure</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Average GGR by how long since first deposit.</p><div class="chart-container" style="height:250px;"><canvas id="ggrByTenureChart"></canvas></div></div></div>
+      <div class="chart-card full-width"><h3>Time to Profitability (GGR ≥ $50)</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How long from first deposit until a player generates ≥$50 GGR. Profitable defined as GGR ≥ $50 to account for acquisition cost.</p>
+        <div id="profitSummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="profitTimingChart"></canvas></div>
+          <div class="chart-container"><canvas id="ggrByTenureChart"></canvas></div>
+        </div>
+      </div>
     </div>
-    <div class="insight-view" id="view-churnTiming" style="display:none;">
-      <div class="chart-card full-width"><h3>When Do Players Go Inactive?</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Days from first deposit to last activity. Identifies the danger window where most churn happens.</p><div class="chart-container" style="height:300px;"><canvas id="churnTimingChart"></canvas></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;"><div class="chart-card"><h3>Churn Summary</h3><div id="churnSummary" style="font-size:13px;color:var(--text-secondary);"></div></div><div class="chart-card"><h3>Activity Lifespan by Product</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Do sports bettors or casino players stay longer?</p><div class="chart-container" style="height:250px;"><canvas id="lifespanByProductChart"></canvas></div></div></div>
+
+    <!-- View: Churn Timing -->
+    <div class="insight-view" id="view-churn" style="display:none;">
+      <div class="chart-card full-width"><h3>Churn Timing Analysis</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Activity lifespan of inactive players (cooling/at-risk/churned). Lifespan = days from first deposit to last activity.</p>
+        <div id="churnSummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="churnTimingChart"></canvas></div>
+          <div class="chart-container"><canvas id="lifespanByProductChart"></canvas></div>
+        </div>
+      </div>
     </div>
-    <div class="insight-view" id="view-cohorts" style="display:none;">
-      <div class="chart-card full-width"><h3>Monthly Cohort Retention</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Of depositors from each month, what % are still active now?</p><div id="cohortRetentionTable" style="overflow-x:auto;"></div></div>
-      <div class="chart-card full-width" style="margin-top:16px;"><h3>Cohort Value Comparison</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Average GGR per player by registration cohort.</p><div class="chart-container" style="height:300px;"><canvas id="cohortValueChart"></canvas></div></div>
+
+    <!-- View: Monthly Cohort -->
+    <div class="insight-view" id="view-cohort" style="display:none;">
+      <div class="chart-card full-width"><h3>Monthly Active Cohort Retention</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">All players who deposited at least once during each month (not just FTDs). Shows engagement and value per monthly cohort.</p>
+        <div id="cohortTable" style="overflow-x:auto;margin-bottom:16px;"></div>
+        <div class="chart-container"><canvas id="cohortValueChart"></canvas></div>
+      </div>
     </div>
+
+    <!-- View: Behavioral Signals -->
     <div class="insight-view" id="view-signals" style="display:none;">
-      <div class="chart-card full-width"><h3>Early Activity vs Current Status</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Players with more deposits or bets - do they stay active?</p><div class="chart-container" style="height:300px;"><canvas id="signalsChart"></canvas></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;"><div class="chart-card"><h3>Key Signals</h3><div id="signalsSummary" style="font-size:13px;color:var(--text-secondary);"></div></div><div class="chart-card"><h3>Deposit Frequency vs Retention</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How does deposit count correlate with staying active?</p><div class="chart-container" style="height:250px;"><canvas id="depCountRetChart"></canvas></div></div></div>
+      <div class="chart-card full-width"><h3>Behavioral Signals — What Predicts Retention?</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Retention rate by deposit count bucket. More deposits = higher retention. The jump from 1→2 deposits is the critical threshold.</p>
+        <div id="signalsSummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="signalsChart"></canvas></div>
+          <div class="chart-container"><canvas id="depCountRetChart"></canvas></div>
+        </div>
+      </div>
     </div>
+
+    <!-- View: Win-back -->
     <div class="insight-view" id="view-winback" style="display:none;">
-      <div class="chart-card full-width"><h3>Win-back Analysis</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Tracks players across weekly snapshots. If a player was Churned/At-Risk and returned to Active, they are a win-back.</p><div id="winbackContent" style="font-size:13px;color:var(--text-secondary);"></div></div>
+      <div class="chart-card full-width"><h3>Win-back Analysis</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Players who were churned/at-risk in a previous snapshot but returned to active. Requires 2+ weekly snapshots.</p>
+        <div id="winbackSummary" style="margin-bottom:16px;"></div>
+        <div id="winbackTable" style="overflow-x:auto;"></div>
+      </div>
     </div>
+
+    <!-- View: Revenue Concentration -->
     <div class="insight-view" id="view-concentration" style="display:none;">
-      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;" id="revenueKpis"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div class="chart-card"><h3>Revenue Concentration (Pareto)</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">What % of total GGR comes from top X% of players.</p><div class="chart-container" style="height:300px;"><canvas id="insightParetoChart"></canvas></div></div><div class="chart-card"><h3>GGR by Value Tier</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Player count and GGR at each percentile band.</p><div class="chart-container" style="height:300px;"><canvas id="insightPercentileChart"></canvas></div></div></div>
-      <div class="chart-card full-width" style="margin-top:16px;"><h3>GGR Trend Over Time</h3><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How average and median GGR per player change week over week.</p><div class="chart-container" style="height:280px;"><canvas id="insightLtvTrendChart"></canvas></div></div>
+      <div class="chart-card full-width"><h3>Revenue Concentration</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How concentrated is revenue across your player base? Further from diagonal = more concentrated. Industry norm: top 10% = 50-70% of revenue.</p>
+        <div id="concSummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="insightParetoChart"></canvas></div>
+          <div class="chart-container"><canvas id="insightPercentileChart"></canvas></div>
+        </div>
+        <div class="chart-container" style="margin-top:16px;"><canvas id="insightGgrTrendChart"></canvas></div>
+      </div>
     </div>
   </div>
 
@@ -880,6 +932,7 @@ body {
     <div class="settings-card">
       <h3>Segmentation Thresholds</h3>
       <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Adjust thresholds. Changes apply on next data processing.</p>
+      <div class="setting-row"><div class="setting-label">New Player Window<small>Days since first deposit to be "New"</small></div><input class="setting-input" type="number" id="set-newDays" value="30"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
       <div class="setting-row"><div class="setting-label">Active Max Days<small>Max days since last activity for "Active"</small></div><input class="setting-input" type="number" id="set-activeDays" value="7"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
       <div class="setting-row"><div class="setting-label">Cooling Max Days<small>Max days inactive for "Cooling"</small></div><input class="setting-input" type="number" id="set-coolingDays" value="15"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
       <div class="setting-row"><div class="setting-label">At-Risk Max Days<small>Max days inactive for "At-Risk"</small></div><input class="setting-input" type="number" id="set-atriskDays" value="30"><span style="font-size:12px;color:var(--text-muted);">days</span></div>
@@ -912,9 +965,8 @@ let currentPage = 1;
 const PAGE_SIZE = 50;
 let charts = {};
 
-// Segment ordering (lower = healthier/better)
-// VIP > Active > New > Cooling > At-Risk > Churned > Registered (never engaged)
-const SEGMENT_ORDER = { vip: 0, active: 1, new: 2, cooling: 3, atrisk: 4, churned: 5, registered: 6 };
+// Segment ordering (lower = healthier)
+const SEGMENT_ORDER = { registered: 0, new: 1, active: 2, vip: 3, cooling: 4, atrisk: 5, churned: 6 };
 const SEGMENT_NAMES = { registered: 'Registered Only', new: 'New', active: 'Active', vip: 'VIP / Whale', cooling: 'Cooling', atrisk: 'At-Risk', churned: 'Churned' };
 const SEGMENT_COLORS = { registered: '#7c4dff', new: '#2979ff', active: '#00c853', vip: '#ffc107', cooling: '#ff9800', atrisk: '#ff5722', churned: '#9e9e9e' };
 
@@ -934,74 +986,12 @@ function loadAllSnapshots() {
 function saveAllSnapshots(snapshots) {
   try {
     if (snapshots.length > MAX_SNAPSHOTS) snapshots = snapshots.slice(-MAX_SNAPSHOTS);
-    
-    // Smart compression: only keep full player data for the last 2 snapshots.
-    // Older snapshots are trimmed to summary-only (segments, ltv, totalPlayers).
-    // This prevents localStorage from hitting the 5MB limit.
-    const compressed = snapshots.map((snap, idx) => {
-      const isRecent = idx >= snapshots.length - 2;
-      if (isRecent || !snap.players) return snap;
-      // Trim old snapshot: keep everything except the huge players map
-      const { players, ...summary } = snap;
-      summary._trimmed = true;
-      return summary;
-    });
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(compressed));
-    hideStorageWarning();
-  } catch(e) {
-    // If still too large, try keeping only 1 full snapshot
-    console.warn('Storage save failed, compressing further:', e);
-    try {
-      const fallback = snapshots.map((snap, idx) => {
-        const isLatest = idx === snapshots.length - 1;
-        if (isLatest || !snap.players) return snap;
-        const { players, ...summary } = snap;
-        summary._trimmed = true;
-        return summary;
-      });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
-      showStorageWarning('partial');
-    } catch(e2) {
-      console.error('Storage save failed even after compression:', e2);
-      showStorageWarning('full');
-    }
-  }
-}
-
-function showStorageWarning(level) {
-  let existing = document.getElementById('storageAlert');
-  if (!existing) {
-    existing = document.createElement('div');
-    existing.id = 'storageAlert';
-    existing.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;padding:16px 24px;border-radius:12px;font-size:13px;font-weight:600;max-width:700px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;';
-    document.body.appendChild(existing);
-  }
-  if (level === 'full') {
-    existing.style.background = '#2d1215';
-    existing.style.border = '1px solid #e4002b';
-    existing.style.color = '#ff6b6b';
-    existing.innerHTML = '🚨 <div><strong>Storage full — snapshot NOT saved!</strong><br><span style="font-weight:400;font-size:12px;color:#ccc;">Your player data has grown beyond browser limits. Your JSON backup was still downloaded, but localStorage could not save. Please share this error with your developer to upgrade storage.</span></div><button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:1px solid #ff6b6b;color:#ff6b6b;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">Dismiss</button>';
-  } else {
-    existing.style.background = '#2d2515';
-    existing.style.border = '1px solid #ff9800';
-    existing.style.color = '#ffb74d';
-    existing.innerHTML = '⚠️ <div><strong>Storage nearly full — older history compressed</strong><br><span style="font-weight:400;font-size:12px;color:#ccc;">Only the latest snapshot has full player data. Migration comparison with last week may be limited. Your JSON backup was still downloaded safely.</span></div><button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:1px solid #ffb74d;color:#ffb74d;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">Dismiss</button>';
-  }
-}
-
-function hideStorageWarning() {
-  const existing = document.getElementById('storageAlert');
-  if (existing) existing.remove();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
+  } catch(e) { console.warn('Storage save failed:', e); }
 }
 
 function getLastSnapshot() {
   const snaps = loadAllSnapshots();
-  // Find the latest snapshot that has full player data (not trimmed)
-  for (let i = snaps.length - 1; i >= 0; i--) {
-    if (snaps[i].players && !snaps[i]._trimmed) return snaps[i];
-  }
-  // Fallback: return the very last one even if trimmed
   return snaps.length > 0 ? snaps[snaps.length - 1] : null;
 }
 
@@ -1011,22 +1001,9 @@ function saveCurrentSnapshot() {
   const label = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   
   // Build player map for storage (slim version — only fields needed for delta calc)
-  // IMPORTANT: Store actual dates so da can be recomputed on reload
-  // OPTIMIZATION: Strip zero/empty fields and minimize registered-only players
   const playerMap = {};
   allPlayers.forEach(p => {
-    // For registered-only players, store minimal identity data
-    if (p.segment === 'registered') {
-      const entry = { seg: 'registered' };
-      if (p.name) entry.nm = p.name;
-      if (p.email) entry.em = p.email;
-      if (p.currency && p.currency !== 'USD') entry.cur = p.currency;
-      playerMap[p.id] = entry;
-      return;
-    }
-    
-    // For active players, build full record but skip zero/empty/null values
-    const full = {
+    playerMap[p.id] = {
       seg: p.segment,
       ngr: p.totalNGR,
       dep: p.totalDeposits,
@@ -1040,23 +1017,8 @@ function saveCurrentSnapshot() {
       nm: p.name || '',
       em: p.email || '',
       pt: p.productType || '',
-      cur: p.currency || '',
-      // Store actual dates as ISO strings for proper recomputation
-      lad: p.lastActivityDate ? p.lastActivityDate.toISOString() : null,
-      ldd: p.lastDepositDate ? p.lastDepositDate.toISOString() : null,
-      slb: p.sportsLastBet ? p.sportsLastBet.toISOString() : null,
-      rad: p.registeredAt ? p.registeredAt.toISOString() : null,
-      fdd: p.firstDepositDate ? p.firstDepositDate.toISOString() : null
+      cur: p.currency || ''
     };
-    // Strip null/zero/empty to save space
-    const slim = {};
-    for (const [k, v] of Object.entries(full)) {
-      if (v !== null && v !== 0 && v !== '' && v !== 'None') slim[k] = v;
-    }
-    // Always keep seg and da (da=0 is valid and important!)
-    slim.seg = full.seg;
-    if (full.da === 0) slim.da = 0;
-    playerMap[p.id] = slim;
   });
   
   // Segment summary
@@ -1190,7 +1152,7 @@ function clearAllHistory() {
   renderHistory();
   // Clear all UI elements
   document.getElementById('snapshotBadge').textContent = 'No data loaded';
-  ['kpiRow','segmentRow','actionsContainer','migrationSummary','playerTableBody','insightKpis','cohortRetentionTable'].forEach(id => {
+  ['kpiRow','segmentRow','actionsContainer','migrationSummary','playerTableBody','insightsKpis','profitSummary','churnSummary','cohortTable','signalsSummary','winbackSummary','winbackTable','concSummary'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = '';
   });
@@ -1247,58 +1209,29 @@ if (lastSnap) previousPlayers = lastSnap.players || {};
 //  AUTO-LOAD LAST SNAPSHOT ON PAGE OPEN
 // ================================================================
 function loadSnapIntoUI(snap) {
-  if (!snap.players || snap._trimmed) {
-    document.getElementById('snapshotBadge').textContent = `${snap.label || 'Unknown'} (summary only — no player data)`;
-    return;
-  }
-  
   // Rebuild allPlayers from stored snapshot player map
   const allSnaps = loadAllSnapshots();
   const idx = allSnaps.findIndex(s => s.date === snap.date);
   previousPlayers = {};
   if (idx > 0) previousPlayers = allSnaps[idx-1].players || {};
   
-  const snapDate = new Date(snap.date);
-  
   allPlayers = Object.entries(snap.players).map(([id, p]) => {
-    // Restore actual dates from snapshot (if available), else null
-    const lastActivityDate = p.lad ? new Date(p.lad) : null;
-    const lastDepositDate = p.ldd ? new Date(p.ldd) : null;
-    const sportsLastBet = p.slb ? new Date(p.slb) : null;
-    const registeredAt = p.rad ? new Date(p.rad) : null;
-    const firstDepositDate = p.fdd ? new Date(p.fdd) : null;
-    
-    // Recompute daysSinceActivity relative to the SNAPSHOT date (not today)
-    // This keeps the snapshot internally consistent
-    let daysSinceActivity;
-    if (lastActivityDate && !isNaN(lastActivityDate.getTime())) {
-      daysSinceActivity = Math.floor((snapDate - lastActivityDate) / (1000*60*60*24));
-    } else {
-      // Fall back to stored da for legacy snapshots without dates
-      // CRITICAL: Use explicit null check, NOT ||, because da=0 is valid (player active today) but falsy in JS
-      const storedDa = p.da !== undefined && p.da !== null ? p.da : (p.daysSinceActivity !== undefined && p.daysSinceActivity !== null ? p.daysSinceActivity : 9999);
-      daysSinceActivity = storedDa;
-    }
-    
     return {
       id, username: p.un || p.username || '', name: p.nm || p.name || '', email: p.em || p.email || '',
       segment: 'registered', // Will be recalculated by segmentPlayers()
       totalNGR: p.ngr || p.totalNGR || 0, totalDeposits: p.dep || p.totalDeposits || 0,
       depositCount: p.dc || p.depositCount || 0, sportsBets: p.sb || p.sportsBets || 0,
       sportsGGR: p.sg || p.sportsGGR || 0, casinoGGR: p.cg || p.casinoGGR || 0,
-      daysSinceActivity, riskScore: 0,
+      daysSinceActivity: p.da || p.daysSinceActivity || 9999, riskScore: 0,
       productType: p.pt || p.productType || '', currency: p.cur || p.currency || '',
-      registeredAt, lastActivityDate, firstActivityDate: firstDepositDate || registeredAt,
-      lastDepositDate, firstDepositDate,
-      lastWithdrawalDate: null,
+      registeredAt: null, lastActivityDate: null, firstActivityDate: null, lastDepositDate: null,
+      firstDepositDate: null, lastWithdrawalDate: null,
       totalWithdrawals: 0, casinoBets: 0, casinoWins: 0,
-      sportsTurnover: 0, sportsAvgStake: 0, sportsActiveDays: 0,
-      sportsLastBet, sportsFirstBet: null,
-      sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
+      sportsTurnover: 0, sportsAvgStake: 0, sportsActiveDays: 0, sportsLastBet: null,
+      sportsFirstBet: null, sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
       hasAnyActivity: (p.dc||p.depositCount||0) > 0 || (p.sb||p.sportsBets||0) > 0,
       hasDeposited: (p.dc||p.depositCount||0) > 0, hasSportsBets: (p.sb||p.sportsBets||0) > 0,
-      daysSinceFirstDeposit: firstDepositDate ? Math.floor((snapDate - firstDepositDate)/(1000*60*60*24)) : 999,
-      tenure: registeredAt ? Math.floor((snapDate - registeredAt)/(1000*60*60*24)) : 0
+      daysSinceFirstDeposit: 999, tenure: 0
     };
   });
   
@@ -1394,15 +1327,6 @@ function daysSince(date) { if (!date) return 9999; return Math.floor((new Date()
 
 function processData() {
   const status = document.getElementById('processStatus');
-  
-  // Warn if sportsbook file is missing
-  if (!rawFiles.betby) {
-    if (!confirm('⚠️ No BetBy sportsbook file uploaded!\n\nWithout it, players who are active on sportsbook but haven\'t deposited recently will appear as Cooling, At-Risk, or Churned.\n\nContinue anyway with deposit-only segmentation?')) {
-      status.textContent = 'Cancelled — upload the BetBy file for accurate segmentation.';
-      return;
-    }
-  }
-  
   status.innerHTML = '<span class="spinner"></span> Processing...';
   setTimeout(() => {
     try {
@@ -1414,11 +1338,7 @@ function processData() {
       computeMigrations();
       saveCurrentSnapshot();
       renderAll();
-      const warnings = [];
-      if (!rawFiles.betby) warnings.push('⚠️ No sportsbook data');
-      if (!rawFiles.reg) warnings.push('ℹ️ No registration file');
-      const warnStr = warnings.length > 0 ? ` (${warnings.join(', ')})` : '';
-      status.textContent = `✅ ${allPlayers.length} players processed · Backup downloaded${warnStr}`;
+      status.textContent = `✅ ${allPlayers.length} players processed · Backup downloaded`;
       switchTab('dashboard');
       document.getElementById('snapshotBadge').textContent = `${allPlayers.length} players · ${new Date().toLocaleDateString()}`;
     } catch(e) { status.textContent = `❌ Error: ${e.message}`; console.error(e); }
@@ -1574,22 +1494,21 @@ function computeMigrations() {
     if (!p.prevSegment || p.prevSegment === p.segment) return;
     const prevRank = SEGMENT_ORDER[p.prevSegment] ?? 99;
     const currRank = SEGMENT_ORDER[p.segment] ?? 99;
-    // Lower rank = better segment. Moving to lower rank = improved, higher = degraded.
-    // Special: registered is rank 6 (unengaged) — any move FROM registered = improved (activation).
     let direction;
-    if (p.prevSegment === 'registered') {
-      direction = 'improved'; // Any engagement from registered = good
-    } else if (p.segment === 'registered') {
-      direction = 'degraded'; // Should not really happen, but defensive
+    // Lower rank for active/vip is better; higher for cooling/atrisk/churned is worse
+    if (p.segment === 'churned' || p.segment === 'atrisk' || p.segment === 'cooling') {
+      direction = (currRank > prevRank) ? 'degraded' : 'improved';
     } else {
-      direction = currRank < prevRank ? 'improved' : 'degraded';
+      direction = (currRank < prevRank || (currRank <= 3 && prevRank > 3)) ? 'improved' : 'degraded';
     }
+    // Special case: registered → new or active = improved
+    if (p.prevSegment === 'registered' && p.segment !== 'registered') direction = 'improved';
+    // churned → anything else = improved
+    if (p.prevSegment === 'churned' && p.segment !== 'churned') direction = 'improved';
+    // active → cooling/atrisk/churned = degraded
+    if (['active','vip','new'].includes(p.prevSegment) && ['cooling','atrisk','churned'].includes(p.segment)) direction = 'degraded';
 
-    migrations.push({
-      id: p.id, username: p.username, name: p.name, email: p.email,
-      from: p.prevSegment, to: p.segment, direction,
-      totalNGR: p.totalNGR, productType: p.productType || 'None'
-    });
+    migrations.push({ id:p.id, username:p.username, name:p.name, email:p.email, from:p.prevSegment, to:p.segment, direction, totalNGR:p.totalNGR });
   });
 }
 
@@ -1747,7 +1666,7 @@ function renderMigrations() {
 
   let h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">';
   Object.values(flows).sort((a,b)=>b.count-a.count).forEach(f => {
-    const isDegraded = (f.from === 'registered') ? false : (SEGMENT_ORDER[f.to] > SEGMENT_ORDER[f.from]);
+    const isDegraded = SEGMENT_ORDER[f.to] > SEGMENT_ORDER[f.from] && !['registered'].includes(f.from);
     const color = isDegraded ? 'var(--segment-atrisk)' : 'var(--green)';
     h += `<div class="migration-item" style="background:var(--bg-surface);border-radius:8px;padding:12px;">
       <span class="migration-count" style="color:${color};">${f.count}</span>
@@ -1770,23 +1689,19 @@ function renderMigrationTable() {
   if (filter === 'improved') data = data.filter(m => m.direction === 'improved');
   data.sort((a,b) => b.totalNGR - a.totalNGR);
 
-  document.getElementById('migrationTableBody').innerHTML = data.map(m => {
-    const prodIcon = m.productType === 'Sports' ? '⚽' : m.productType === 'Casino' ? '🎰' : m.productType === 'Both' ? '⚽🎰' : '—';
-    return `<tr>
+  document.getElementById('migrationTableBody').innerHTML = data.map(m => `<tr>
     <td>${m.id}</td><td style="font-family:'DM Sans',sans-serif;">${m.username||'—'}</td>
     <td style="font-family:'DM Sans',sans-serif;">${m.name||'—'}</td><td style="font-family:'DM Sans',sans-serif;font-size:11px;">${m.email||'—'}</td>
     <td><span class="segment-badge ${m.from}">${m.from}</span></td>
     <td><span class="segment-badge ${m.to}">${m.to}</span></td>
     <td style="color:${m.direction==='degraded'?'var(--segment-atrisk)':'var(--green)'};">${m.direction==='degraded'?'▼ Degraded':'▲ Improved'}</td>
-    <td>$${fmt(m.totalNGR)}</td>
-    <td>${prodIcon} ${m.productType||'None'}</td></tr>`;
-  }).join('');
+    <td>$${fmt(m.totalNGR)}</td></tr>`).join('');
 }
 
 function exportMigrations() {
   if (migrations.length===0) return alert('No migrations to export.');
-  const h = ['Player ID','Username','Name','Email','Previous Segment','Current Segment','Direction','Total GGR','Favorite Product'];
-  const rows = migrations.map(m=>[m.id,m.username,m.name,m.email,m.from,m.to,m.direction,m.totalNGR.toFixed(2),m.productType||'None']);
+  const h = ['Player ID','Username','Name','Email','Previous Segment','Current Segment','Direction','Total GGR'];
+  const rows = migrations.map(m=>[m.id,m.username,m.name,m.email,m.from,m.to,m.direction,m.totalNGR.toFixed(2)]);
   downloadCSV([h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'), `appuesta_migrations_${new Date().toISOString().split('T')[0]}.csv`);
 }
 
@@ -1844,292 +1759,443 @@ function downloadCSV(csv, fn) { const b=new Blob([csv],{type:'text/csv;charset=u
 // ================================================================
 function showInsightView(view) {
   document.querySelectorAll('.insight-view').forEach(v => v.style.display = 'none');
-  document.querySelectorAll('#insightSubNav button').forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline'); });
+  document.querySelectorAll('.insight-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById('view-' + view);
   if (el) el.style.display = 'block';
-  const btn = document.querySelector('#insightSubNav button[data-view="' + view + '"]');
-  if (btn) { btn.classList.remove('btn-outline'); btn.classList.add('btn-primary'); }
+  const btn = document.querySelector(`.insight-btn[data-view="${view}"]`);
+  if (btn) btn.classList.add('active');
 }
 
 function renderInsights() {
   const dep = allPlayers.filter(p => p.hasAnyActivity);
   if (dep.length === 0) return;
 
+  // Top KPIs
   const totalNGR = dep.reduce((s,p) => s+p.totalNGR, 0);
-  const avgLTV = totalNGR / dep.length;
-  const medNGR = getMedian(dep.map(p => p.totalNGR));
-  const profitable = dep.filter(p => p.totalNGR > 0);
-  const profitRate = (profitable.length / dep.length * 100);
-  const activeOrVip = dep.filter(p => ['active','vip','new'].includes(p.segment)).length;
-  const retentionRate = (activeOrVip / dep.length * 100);
-  const hasDates = dep.some(p => p.firstDepositDate && p.registeredAt);
-  const hasLifespan = dep.some(p => p.firstDepositDate && p.lastActivityDate);
+  const avgGGR = totalNGR / dep.length;
+  const medGGR = getMedian(dep.map(p => p.totalNGR));
+  const profitableCount = dep.filter(p => p.totalNGR >= 50).length;
+  const profitPct = (profitableCount / dep.length * 100);
+  const activeCount = dep.filter(p => ['active','vip','new'].includes(p.segment)).length;
+  const retentionPct = (activeCount / dep.length * 100);
+  const avgDep = dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length;
 
-  document.getElementById('insightKpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Avg GGR / Player</div><div class="kpi-value">$${fmt(avgLTV)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
-    <div class="kpi-card"><div class="kpi-label">Median GGR</div><div class="kpi-value">$${fmt(medNGR)}</div><div class="kpi-sub">50th percentile</div></div>
-    <div class="kpi-card"><div class="kpi-label">Profitable Players</div><div class="kpi-value">${profitRate.toFixed(1)}%</div><div class="kpi-sub">${profitable.length} of ${dep.length} with GGR &gt; 0</div></div>
-    <div class="kpi-card"><div class="kpi-label">Current Retention</div><div class="kpi-value">${retentionRate.toFixed(1)}%</div><div class="kpi-sub">${activeOrVip} still active of ${dep.length}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg Deposit</div><div class="kpi-value">$${fmt(dep.reduce((s,p)=>s+p.totalDeposits,0)/dep.length)}</div><div class="kpi-sub">Per depositor</div></div>`;
+  document.getElementById('insightsKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Avg GGR/Player</div><div class="kpi-value">$${fmt(avgGGR)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
+    <div class="kpi-card"><div class="kpi-label">Median GGR</div><div class="kpi-value">$${fmt(medGGR)}</div><div class="kpi-sub">50th percentile</div></div>
+    <div class="kpi-card"><div class="kpi-label">Profitable (≥$50)</div><div class="kpi-value">${profitableCount}</div><div class="kpi-sub">${profitPct.toFixed(1)}% of depositors</div></div>
+    <div class="kpi-card"><div class="kpi-label">Current Retention</div><div class="kpi-value">${retentionPct.toFixed(1)}%</div><div class="kpi-sub">${activeCount} active players</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg Deposit</div><div class="kpi-value">$${fmt(avgDep)}</div><div class="kpi-sub">Per depositor</div></div>`;
 
-  renderProfitability(dep, hasDates);
-  renderChurnTiming(dep, hasLifespan);
-  renderCohortRetention(dep, hasDates);
-  renderBehaviorSignals(dep);
+  renderTimeToProfitability(dep);
+  renderChurnTiming(dep);
+  renderMonthlyCohort(dep);
+  renderBehavioralSignals(dep);
   renderWinback();
-  renderConcentration(dep, totalNGR);
+  renderRevenueConcentration(dep, totalNGR);
 }
 
-function renderProfitability(dep, hasDates) {
-  if (!hasDates) {
-    document.getElementById('profitSummary').innerHTML = '<p style="color:var(--text-muted);padding:20px;">Requires date fields. Process fresh CSVs to enable — old JSON snapshots don\'t contain registration dates.</p>';
+// ---- VIEW 1: Time to Profitability ----
+function renderTimeToProfitability(dep) {
+  const container = document.getElementById('profitSummary');
+  const hasFDD = dep.some(p => p.firstDepositDate);
+  if (!hasFDD) {
+    container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available (restored from old snapshot). Upload fresh CSVs to see Time to Profitability.</div>';
     return;
   }
+
   const withFDD = dep.filter(p => p.firstDepositDate);
-  const buckets = [{l:'0-3d',a:0,b:3},{l:'4-7d',a:4,b:7},{l:'8-14d',a:8,b:14},{l:'15-21d',a:15,b:21},{l:'22-30d',a:22,b:30},{l:'31+d',a:31,b:9999}];
-  const profitByBucket = buckets.map(b => {
-    const inB = withFDD.filter(p => p.daysSinceFirstDeposit >= b.a && p.daysSinceFirstDeposit <= b.b);
-    return { label: b.l, profitable: inB.filter(p => p.totalNGR > 0).length, unprofitable: inB.filter(p => p.totalNGR <= 0).length, total: inB.length };
+  const THRESHOLD = 50;
+  const buckets = [
+    { label: '0-3 days', min: 0, max: 3 },
+    { label: '4-7 days', min: 4, max: 7 },
+    { label: '8-14 days', min: 8, max: 14 },
+    { label: '15-21 days', min: 15, max: 21 },
+    { label: '22-30 days', min: 22, max: 30 },
+    { label: '31+ days', min: 31, max: 99999 }
+  ];
+
+  const data = buckets.map(b => {
+    const inBucket = withFDD.filter(p => {
+      const tenure = p.daysSinceFirstDeposit || 0;
+      return tenure >= b.min && tenure <= b.max;
+    });
+    const profitable = inBucket.filter(p => p.totalNGR >= THRESHOLD).length;
+    const unprofitable = inBucket.length - profitable;
+    return { label: b.label, profitable, unprofitable, total: inBucket.length };
   });
+
+  const profitable = withFDD.filter(p => p.totalNGR >= THRESHOLD);
+  const quickProfit = profitable.filter(p => (p.daysSinceFirstDeposit || 0) <= 7).length;
+  const profitRate = (profitable.length / withFDD.length * 100);
+  const avgGGRProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.totalNGR, 0) / profitable.length : 0;
+  const avgGGRUnprofit = (withFDD.length - profitable.length) > 0 ? withFDD.filter(p => p.totalNGR < THRESHOLD).reduce((s,p) => s+p.totalNGR, 0) / (withFDD.length - profitable.length) : 0;
+  const medTenureProfit = profitable.length > 0 ? getMedian(profitable.map(p => p.daysSinceFirstDeposit || 0)) : 0;
+
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${withFDD.length} depositors</div></div>
+    <div class="insight-kpi"><div class="label">Quick Profit (≤7d)</div><div class="value">${quickProfit}</div><div class="sub">Profitable within first week</div></div>
+    <div class="insight-kpi"><div class="label">Avg GGR (Profitable)</div><div class="value" style="color:var(--green);">$${fmt(avgGGRProfit)}</div><div class="sub">vs $${fmt(avgGGRUnprofit)} unprofitable</div></div>
+    <div class="insight-kpi"><div class="label">Median Tenure (Profitable)</div><div class="value">${medTenureProfit.toFixed(0)}d</div><div class="sub">Days since first deposit</div></div>
+  </div>`;
+
+  // Stacked bar: profitable vs unprofitable by tenure
   if (charts.profitTiming) charts.profitTiming.destroy();
   charts.profitTiming = new Chart(document.getElementById('profitTimingChart'), {
-    type:'bar', data:{ labels:profitByBucket.map(b=>b.label), datasets:[
-      {label:'Profitable (GGR > 0)',data:profitByBucket.map(b=>b.profitable),backgroundColor:'#00c853',borderRadius:6},
-      {label:'Unprofitable (GGR \u2264 0)',data:profitByBucket.map(b=>b.unprofitable),backgroundColor:'#ff5722',borderRadius:6}
-    ]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{x:{stacked:true,ticks:{color:'#8a8d91'},grid:{display:false}},y:{stacked:true,ticks:{color:'#8a8d91'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+    type: 'bar', data: { labels: data.map(d => d.label), datasets: [
+      { label: 'Profitable (≥$50)', data: data.map(d => d.profitable), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4 },
+      { label: 'Unprofitable (<$50)', data: data.map(d => d.unprofitable), backgroundColor: 'rgba(158,158,158,0.5)', borderRadius: 4 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Profitable vs Unprofitable by Tenure', color: '#8a8d91' } },
+      scales: { x: { stacked: true, ticks: { color: '#8a8d91' }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } } } }
   });
 
-  const profTotal = withFDD.filter(p => p.totalNGR > 0);
-  const profTenures = profTotal.map(p => p.daysSinceFirstDeposit).sort((a,b)=>a-b);
-  const medianProf = profTenures.length > 0 ? profTenures[Math.floor(profTenures.length/2)] : 0;
-  const quickProfit = withFDD.filter(p => p.totalNGR > 0 && p.daysSinceFirstDeposit <= 7).length;
-  const unprofitable = withFDD.filter(p => p.totalNGR <= 0);
+  // Avg GGR by tenure bucket
+  const ggrBuckets = [
+    { label: '0-7d', min: 0, max: 7 },
+    { label: '8-14d', min: 8, max: 14 },
+    { label: '15-30d', min: 15, max: 30 },
+    { label: '31+d', min: 31, max: 99999 }
+  ];
+  const ggrData = ggrBuckets.map(b => {
+    const inB = withFDD.filter(p => (p.daysSinceFirstDeposit||0) >= b.min && (p.daysSinceFirstDeposit||0) <= b.max);
+    return inB.length > 0 ? inB.reduce((s,p) => s+p.totalNGR, 0) / inB.length : 0;
+  });
 
-  document.getElementById('profitSummary').innerHTML = `<div>
-    <p style="margin-bottom:10px;"><span style="color:#00c853;font-weight:700;font-size:20px;">${(profTotal.length/withFDD.length*100).toFixed(1)}%</span> of depositors are profitable</p>
-    <p style="margin-bottom:10px;">Median tenure of profitable players: <strong>${medianProf} days</strong></p>
-    <p style="margin-bottom:10px;"><strong>${quickProfit}</strong> became profitable within first week (${(quickProfit/Math.max(1,profTotal.length)*100).toFixed(0)}% of all profitable)</p>
-    <p style="margin-bottom:10px;">Avg GGR of profitable: <strong>$${fmt(profTotal.reduce((s,p)=>s+p.totalNGR,0)/Math.max(1,profTotal.length))}</strong></p>
-    <p>Avg GGR of unprofitable: <strong style="color:#ff5722;">$${fmt(unprofitable.reduce((s,p)=>s+p.totalNGR,0)/Math.max(1,unprofitable.length))}</strong></p></div>`;
-
-  const tenureBuckets = [{l:'0-7d',a:0,b:7},{l:'8-14d',a:8,b:14},{l:'15-30d',a:15,b:30},{l:'31+d',a:31,b:9999}];
-  const ggrByT = tenureBuckets.map(b => { const ps=withFDD.filter(p=>p.daysSinceFirstDeposit>=b.a&&p.daysSinceFirstDeposit<=b.b); return ps.length>0?ps.reduce((s,p)=>s+p.totalNGR,0)/ps.length:0; });
   if (charts.ggrByTenure) charts.ggrByTenure.destroy();
   charts.ggrByTenure = new Chart(document.getElementById('ggrByTenureChart'), {
-    type:'bar', data:{labels:tenureBuckets.map(b=>b.l),datasets:[{data:ggrByT,backgroundColor:ggrByT.map(v=>v>0?'#00c853':'#ff5722'),borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+    type: 'bar', data: { labels: ggrBuckets.map(b => b.label), datasets: [{
+      label: 'Avg GGR', data: ggrData,
+      backgroundColor: ggrData.map(v => v >= 50 ? 'rgba(0,200,83,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Avg GGR by Tenure Bucket', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 }
 
-function renderChurnTiming(dep, hasLifespan) {
-  if (!hasLifespan) {
-    document.getElementById('churnSummary').innerHTML = '<p style="color:var(--text-muted);padding:20px;">Requires date fields. Process fresh CSVs to enable.</p>';
+// ---- VIEW 2: Churn Timing ----
+function renderChurnTiming(dep) {
+  const container = document.getElementById('churnSummary');
+  const hasDates = dep.some(p => p.firstDepositDate && p.lastActivityDate);
+  if (!hasDates) {
+    container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available. Upload fresh CSVs to see Churn Timing.</div>';
     return;
   }
-  const withDates = dep.filter(p => p.firstDepositDate && p.lastActivityDate);
-  const lifespans = withDates.map(p => ({
-    lifespan: Math.max(0, Math.floor((p.lastActivityDate - p.firstDepositDate)/(1000*60*60*24))),
-    segment: p.segment, product: p.productType || 'None'
-  }));
-  const inactivePlayers = lifespans.filter(p => ['cooling','atrisk','churned'].includes(p.segment));
-  const buckets = [{l:'Same day',a:0,b:0},{l:'1-3d',a:1,b:3},{l:'4-7d',a:4,b:7},{l:'8-14d',a:8,b:14},{l:'15-21d',a:15,b:21},{l:'22-30d',a:22,b:30},{l:'31+d',a:31,b:9999}];
-  const churnData = buckets.map(b => inactivePlayers.filter(p=>p.lifespan>=b.a&&p.lifespan<=b.b).length);
+
+  const inactive = dep.filter(p => ['cooling','atrisk','churned'].includes(p.segment) && p.firstDepositDate && p.lastActivityDate);
+  if (inactive.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No inactive players found.</p>'; return; }
+
+  const lifespans = inactive.map(p => {
+    const span = Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+    return { ...p, lifespan: span };
+  });
+
+  const buckets = [
+    { label: 'Same day (0d)', min: 0, max: 0 },
+    { label: '1-3 days', min: 1, max: 3 },
+    { label: '4-7 days', min: 4, max: 7 },
+    { label: '8-14 days', min: 8, max: 14 },
+    { label: '15-21 days', min: 15, max: 21 },
+    { label: '22-30 days', min: 22, max: 30 },
+    { label: '31+ days', min: 31, max: 99999 }
+  ];
+
+  const data = buckets.map(b => lifespans.filter(p => p.lifespan >= b.min && p.lifespan <= b.max).length);
+  const sameDayCount = data[0];
+  const firstWeekCount = data[0] + data[1] + data[2];
+  const firstWeekPct = (firstWeekCount / inactive.length * 100);
+  const medLifespan = getMedian(lifespans.map(p => p.lifespan));
+
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Same-day Churn</div><div class="value" style="color:var(--red);">${sameDayCount}</div><div class="sub">Deposited, never returned</div></div>
+    <div class="insight-kpi"><div class="label">First Week Churn</div><div class="value" style="color:var(--red);">${firstWeekPct.toFixed(1)}%</div><div class="sub">${firstWeekCount} of ${inactive.length} churned</div></div>
+    <div class="insight-kpi"><div class="label">Median Lifespan</div><div class="value">${medLifespan.toFixed(0)}d</div><div class="sub">Of inactive players</div></div>
+    <div class="insight-kpi"><div class="label">Danger Window</div><div class="value" style="color:#ffc107;">Week 1</div><div class="sub">${firstWeekPct.toFixed(0)}% churn — highest ROI intervention</div></div>
+  </div>`;
 
   if (charts.churnTiming) charts.churnTiming.destroy();
   charts.churnTiming = new Chart(document.getElementById('churnTimingChart'), {
-    type:'bar', data:{labels:buckets.map(b=>b.l),datasets:[{label:'Inactive players',data:churnData,backgroundColor:['#ff1744','#ff5722','#ff9800','#ffc107','#8bc34a','#4caf50','#2979ff'],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91'},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+    type: 'bar', data: { labels: buckets.map(b => b.label), datasets: [{
+      label: 'Inactive Players', data: data,
+      backgroundColor: data.map((_, i) => i <= 2 ? 'rgba(255,87,34,0.7)' : 'rgba(255,152,0,0.5)'), borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Churn by Activity Lifespan', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 
-  const sameDayChurn = inactivePlayers.filter(p=>p.lifespan===0).length;
-  const firstWeekChurn = inactivePlayers.filter(p=>p.lifespan<=7).length;
-  const medianLifespan = inactivePlayers.length>0 ? [...inactivePlayers].sort((a,b)=>a.lifespan-b.lifespan)[Math.floor(inactivePlayers.length/2)].lifespan : 0;
+  // Lifespan by product type
+  const products = ['Sports', 'Casino', 'Both'];
+  const prodData = products.map(pt => {
+    const group = lifespans.filter(p => (p.productType||'') === pt || (pt === 'Both' && (p.productType||'') === 'Both'));
+    return group.length > 0 ? group.reduce((s,p) => s + p.lifespan, 0) / group.length : 0;
+  });
 
-  document.getElementById('churnSummary').innerHTML = `<div>
-    <p style="margin-bottom:10px;"><span style="color:#ff5722;font-weight:700;font-size:20px;">${inactivePlayers.length}</span> inactive depositors total</p>
-    <p style="margin-bottom:10px;"><strong>${sameDayChurn}</strong> deposited and never returned (${(sameDayChurn/Math.max(1,inactivePlayers.length)*100).toFixed(0)}%) \u2014 <span style="color:#ff5722;">same-day churn</span></p>
-    <p style="margin-bottom:10px;"><strong>${firstWeekChurn}</strong> churned within first week (${(firstWeekChurn/Math.max(1,inactivePlayers.length)*100).toFixed(0)}%)</p>
-    <p style="margin-bottom:10px;">Median activity lifespan: <strong>${medianLifespan} days</strong></p>
-    <p style="margin-top:16px;padding:12px;background:rgba(228,0,43,0.1);border-radius:8px;border-left:3px solid #e4002b;">\ud83c\udfaf <strong>Danger window:</strong> ${(firstWeekChurn/Math.max(1,inactivePlayers.length)*100).toFixed(0)}% of churn happens in week 1. This is your highest-ROI intervention window.</p></div>`;
-
-  const products = ['Sports','Casino','Both'];
-  const avgLifeByProduct = products.map(pt => { const ps=lifespans.filter(p=>p.product===pt); return ps.length>0?ps.reduce((s,p)=>s+p.lifespan,0)/ps.length:0; });
-  const countByProduct = products.map(pt => lifespans.filter(p=>p.product===pt).length);
-  if (charts.lifespanByProduct) charts.lifespanByProduct.destroy();
-  charts.lifespanByProduct = new Chart(document.getElementById('lifespanByProductChart'), {
-    type:'bar', data:{labels:products.map((p,i)=>p+' ('+countByProduct[i]+')'),datasets:[{data:avgLifeByProduct,backgroundColor:['#2979ff','#e4002b','#ffc107'],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>v+'d'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Avg days active',color:'#8a8d91'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+  if (charts.lifespanProduct) charts.lifespanProduct.destroy();
+  charts.lifespanProduct = new Chart(document.getElementById('lifespanByProductChart'), {
+    type: 'bar', data: { labels: products, datasets: [{
+      label: 'Avg Lifespan (days)', data: prodData,
+      backgroundColor: ['#2979ff', '#e4002b', '#ffc107'], borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Avg Activity Lifespan by Product', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'d' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 }
 
-function renderCohortRetention(dep, hasDates) {
-  const hm = document.getElementById('cohortRetentionTable');
-  if (!hasDates) { hm.innerHTML = '<p style="color:var(--text-muted);padding:40px;text-align:center;">Requires date fields. Process fresh CSVs to enable.</p>'; return; }
-  const cohorts = {};
-  dep.forEach(p => { if(!p.firstDepositDate)return; const k=p.firstDepositDate.getFullYear()+'-'+String(p.firstDepositDate.getMonth()+1).padStart(2,'0'); if(!cohorts[k])cohorts[k]=[]; cohorts[k].push(p); });
-  const ck = Object.keys(cohorts).sort();
-  if (ck.length===0) { hm.innerHTML='<p style="color:var(--text-muted);">No cohort data.</p>'; return; }
+// ---- VIEW 3: Monthly Cohort (ALL depositors per month) ----
+function renderMonthlyCohort(dep) {
+  const container = document.getElementById('cohortTable');
+  const hasDates = dep.some(p => p.lastDepositDate || p.lastActivityDate);
 
-  let th='<table class="player-table" style="font-size:12px;"><thead><tr><th>FDD Month</th><th>Players</th><th>Avg GGR</th><th>Avg Deposits</th><th>Still Active</th><th>Cooling/At-Risk</th><th>Churned</th></tr></thead><tbody>';
-  ck.forEach(k => {
-    const cp=cohorts[k]; const t=cp.length;
-    const activeC=cp.filter(p=>['active','vip','new'].includes(p.segment)).length;
-    const coolingC=cp.filter(p=>['cooling','atrisk'].includes(p.segment)).length;
-    const churnedC=cp.filter(p=>p.segment==='churned').length;
-    const ap=(activeC/t*100),clp=(coolingC/t*100),chp=(churnedC/t*100);
-    const avgGGR=cp.reduce((s,p)=>s+p.totalNGR,0)/t;
-    th+=`<tr><td style="font-weight:600;">${k}</td><td>${t}</td><td style="color:${avgGGR>0?'#00c853':'#ff5722'};">$${fmt(avgGGR)}</td><td>$${fmt(cp.reduce((s,p)=>s+p.totalDeposits,0)/t)}</td><td style="background:${ap>60?'rgba(0,200,83,0.25)':ap>30?'rgba(255,193,7,0.25)':'rgba(255,87,34,0.25)'};font-weight:600;">${ap.toFixed(1)}%</td><td style="background:rgba(255,152,0,0.15);">${clp.toFixed(1)}%</td><td style="background:${chp>50?'rgba(255,87,34,0.25)':chp>25?'rgba(255,193,7,0.15)':'rgba(0,200,83,0.1)'};font-weight:600;">${chp.toFixed(1)}%</td></tr>`;
+  // Group by month of LAST DEPOSIT (or last activity) to find "active that month"
+  // Since we have a single snapshot, we approximate: group by the month they were last active
+  // The best proxy for "deposited at least once in month X" from a single snapshot:
+  // We use lastDepositDate to determine which month the player last deposited in.
+  // For a true month-over-month view we'd need weekly snapshots, but this gives a useful breakdown.
+
+  if (!hasDates) {
+    container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available. Upload fresh CSVs to see Monthly Cohort data.</div>';
+    return;
+  }
+
+  // Group all depositors by their LAST DEPOSIT month (best single-snapshot proxy)
+  const months = {};
+  dep.forEach(p => {
+    const d = p.lastDepositDate || p.lastActivityDate;
+    if (!d) return;
+    const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    if (!months[k]) months[k] = [];
+    months[k].push(p);
   });
-  th+='</tbody></table>'; hm.innerHTML=th;
 
+  const mk = Object.keys(months).sort();
+  if (mk.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No deposit date data available.</p>'; return; }
+
+  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Players</th><th>Avg GGR</th><th>Avg Deposits</th><th>% Still Active</th><th>% Cooling/At-Risk</th><th>% Churned</th></tr></thead><tbody>';
+  mk.forEach(k => {
+    const cp = months[k];
+    const t = cp.length;
+    const ac = cp.filter(p => ['active','vip','new'].includes(p.segment)).length;
+    const ca = cp.filter(p => ['cooling','atrisk'].includes(p.segment)).length;
+    const cc = cp.filter(p => p.segment === 'churned').length;
+    const ap = (ac/t*100), cap = (ca/t*100), chp = (cc/t*100);
+    const avgG = cp.reduce((s,p) => s+p.totalNGR, 0) / t;
+    const avgD = cp.reduce((s,p) => s+p.totalDeposits, 0) / t;
+    th += `<tr><td style="font-weight:600;">${k}</td><td>${t}</td><td>$${fmt(avgG)}</td><td>$${fmt(avgD)}</td>`;
+    th += `<td style="background:${ap>60?'rgba(0,200,83,0.3)':ap>30?'rgba(255,193,7,0.3)':'rgba(255,87,34,0.3)'};">${ap.toFixed(1)}%</td>`;
+    th += `<td style="background:${cap>30?'rgba(255,152,0,0.3)':'rgba(255,255,255,0.05)'};">${cap.toFixed(1)}%</td>`;
+    th += `<td style="background:${chp>50?'rgba(255,87,34,0.3)':chp>25?'rgba(255,193,7,0.3)':'rgba(0,200,83,0.3)'};">${chp.toFixed(1)}%</td></tr>`;
+  });
+  th += '</tbody></table>';
+  container.innerHTML = th;
+
+  // Chart: Avg GGR per month + player count
   if (charts.cohortValue) charts.cohortValue.destroy();
   charts.cohortValue = new Chart(document.getElementById('cohortValueChart'), {
-    type:'bar', data:{labels:ck,datasets:[
-      {label:'Avg GGR',data:ck.map(k=>cohorts[k].reduce((s,p)=>s+p.totalNGR,0)/cohorts[k].length),backgroundColor:'#e4002b',borderRadius:6,yAxisID:'y'},
-      {label:'Cohort Size',data:ck.map(k=>cohorts[k].length),type:'line',borderColor:'#2979ff',pointBackgroundColor:'#2979ff',yAxisID:'y1',tension:0.3}
-    ]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{position:'left',ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}},y1:{position:'right',ticks:{color:'#8a8d91'},grid:{display:false}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+    type: 'bar', data: { labels: mk, datasets: [
+      { label: 'Avg GGR', data: mk.map(k => months[k].reduce((s,p) => s+p.totalNGR, 0) / months[k].length), backgroundColor: '#e4002b', borderRadius: 6, yAxisID: 'y' },
+      { label: 'Players', data: mk.map(k => months[k].length), type: 'line', borderColor: '#2979ff', pointBackgroundColor: '#2979ff', yAxisID: 'y1', tension: 0.3 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } } },
+      scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Avg GGR', color: '#8a8d91' } },
+        y1: { position: 'right', ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Players', color: '#8a8d91' } },
+        x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 }
 
-function renderBehaviorSignals(dep) {
-  const dcBuckets = [{l:'1 deposit',a:1,b:1},{l:'2 deposits',a:2,b:2},{l:'3-5',a:3,b:5},{l:'6-10',a:6,b:10},{l:'11+',a:11,b:9999}];
-  const retByDC = dcBuckets.map(b => {
-    const ps=dep.filter(p=>p.depositCount>=b.a&&p.depositCount<=b.b);
-    const active=ps.filter(p=>['active','vip','new'].includes(p.segment)).length;
-    return {label:b.l,total:ps.length,active,rate:ps.length>0?(active/ps.length*100):0};
+// ---- VIEW 4: Behavioral Signals ----
+function renderBehavioralSignals(dep) {
+  const container = document.getElementById('signalsSummary');
+  
+  const depBuckets = [
+    { label: '1 deposit', min: 1, max: 1 },
+    { label: '2 deposits', min: 2, max: 2 },
+    { label: '3-5 deposits', min: 3, max: 5 },
+    { label: '6-10 deposits', min: 6, max: 10 },
+    { label: '11+ deposits', min: 11, max: 99999 }
+  ];
+
+  const isRetained = p => ['active','vip','new'].includes(p.segment);
+  const bucketData = depBuckets.map(b => {
+    const group = dep.filter(p => p.depositCount >= b.min && p.depositCount <= b.max);
+    const retained = group.filter(isRetained).length;
+    return { label: b.label, total: group.length, retained, rate: group.length > 0 ? (retained/group.length*100) : 0 };
   });
+
+  const single = bucketData[0];
+  const second = bucketData[1];
+  const multiplier = single.rate > 0 ? (second.rate / single.rate).toFixed(1) : '∞';
+
+  // Sports vs Casino retention
+  const sportsPlayers = dep.filter(p => p.hasSportsBets);
+  const casinoOnly = dep.filter(p => !p.hasSportsBets && p.depositCount > 0);
+  const sportsRet = sportsPlayers.length > 0 ? (sportsPlayers.filter(isRetained).length / sportsPlayers.length * 100) : 0;
+  const casinoRet = casinoOnly.length > 0 ? (casinoOnly.filter(isRetained).length / casinoOnly.length * 100) : 0;
+
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Single Deposit Retention</div><div class="value" style="color:var(--red);">${single.rate.toFixed(1)}%</div><div class="sub">${single.retained} of ${single.total} players</div></div>
+    <div class="insight-kpi"><div class="label">2nd Deposit Impact</div><div class="value" style="color:var(--green);">${multiplier}x</div><div class="sub">${second.rate.toFixed(1)}% retention with 2 deposits</div></div>
+    <div class="insight-kpi"><div class="label">Sports Bettors Retention</div><div class="value">${sportsRet.toFixed(1)}%</div><div class="sub">${sportsPlayers.length} players</div></div>
+    <div class="insight-kpi"><div class="label">Casino-only Retention</div><div class="value">${casinoRet.toFixed(1)}%</div><div class="sub">${casinoOnly.length} players</div></div>
+  </div>`;
+
+  // Bar: retention rate by deposit count bucket
   if (charts.signals) charts.signals.destroy();
   charts.signals = new Chart(document.getElementById('signalsChart'), {
-    type:'bar', data:{labels:retByDC.map(b=>b.label+' (n='+b.total+')'),datasets:[{label:'Still Active %',data:retByDC.map(b=>b.rate),backgroundColor:retByDC.map(b=>b.rate>50?'#00c853':b.rate>25?'#ffc107':'#ff5722'),borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'},max:100},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}
+    type: 'bar', data: { labels: bucketData.map(b => b.label), datasets: [{
+      label: 'Retention Rate %', data: bucketData.map(b => b.rate),
+      backgroundColor: bucketData.map(b => b.rate >= 50 ? 'rgba(0,200,83,0.7)' : b.rate >= 25 ? 'rgba(255,193,7,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Retention Rate by Deposit Count', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 
-  const oneDeposit=dep.filter(p=>p.depositCount===1), oneDepActive=oneDeposit.filter(p=>['active','vip','new'].includes(p.segment)).length;
-  const twoPlus=dep.filter(p=>p.depositCount>=2), twoPlusActive=twoPlus.filter(p=>['active','vip','new'].includes(p.segment)).length;
-  const hasBets=dep.filter(p=>p.sportsBets>0), betsActive=hasBets.filter(p=>['active','vip','new'].includes(p.segment)).length;
-  const noBets=dep.filter(p=>p.sportsBets===0), noBetsActive=noBets.filter(p=>['active','vip','new'].includes(p.segment)).length;
-  const oneRate=oneDeposit.length>0?(oneDepActive/oneDeposit.length*100):0;
-  const twoRate=twoPlus.length>0?(twoPlusActive/twoPlus.length*100):0;
-  const multiplier = oneRate>0 ? (twoRate/oneRate).toFixed(1) : 'N/A';
-
-  document.getElementById('signalsSummary').innerHTML = `<div>
-    <p style="margin-bottom:12px;padding:12px;background:rgba(0,200,83,0.1);border-radius:8px;border-left:3px solid #00c853;">\ud83d\udcc8 <strong>2nd deposit = ${twoRate.toFixed(0)}% retention</strong> vs ${oneRate.toFixed(0)}% for single-deposit players. <strong>${multiplier}x more likely to stay.</strong></p>
-    <p style="margin-bottom:10px;">1 deposit: <strong>${oneDeposit.length}</strong> players \u2192 <strong>${oneRate.toFixed(1)}%</strong> still active</p>
-    <p style="margin-bottom:10px;">2+ deposits: <strong>${twoPlus.length}</strong> players \u2192 <strong>${twoRate.toFixed(1)}%</strong> still active</p>
-    <p style="margin-bottom:10px;">Has sports bets: <strong>${hasBets.length}</strong> players \u2192 <strong>${hasBets.length>0?(betsActive/hasBets.length*100).toFixed(1):0}%</strong> still active</p>
-    <p>Casino only (no bets): <strong>${noBets.length}</strong> players \u2192 <strong>${noBets.length>0?(noBetsActive/noBets.length*100).toFixed(1):0}%</strong> still active</p></div>`;
-
-  const dcRetData = [];
-  const maxDC = Math.min(20, Math.max(...dep.map(p=>p.depositCount)));
-  for (let dc=1; dc<=maxDC; dc++) {
-    const ps=dep.filter(p=>p.depositCount===dc);
-    if (ps.length>=2) { const act=ps.filter(p=>['active','vip','new'].includes(p.segment)).length; dcRetData.push({dc,rate:act/ps.length*100,n:ps.length}); }
+  // Line: retention % for each deposit count 1-20
+  const maxDC = Math.min(20, Math.max(...dep.map(p => p.depositCount)));
+  const lineLabels = []; const lineData = [];
+  for (let i = 1; i <= maxDC; i++) {
+    const group = dep.filter(p => p.depositCount === i);
+    if (group.length < 2) continue;
+    lineLabels.push(i + '');
+    lineData.push(group.filter(isRetained).length / group.length * 100);
   }
+
   if (charts.depCountRet) charts.depCountRet.destroy();
   charts.depCountRet = new Chart(document.getElementById('depCountRetChart'), {
-    type:'line', data:{labels:dcRetData.map(d=>d.dc),datasets:[{label:'Retention %',data:dcRetData.map(d=>d.rate),borderColor:'#00c853',backgroundColor:'rgba(0,200,83,0.1)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#00c853'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'},max:100,min:0},x:{ticks:{color:'#8a8d91'},grid:{display:false},title:{display:true,text:'Deposit count',color:'#8a8d91'}}}}
+    type: 'line', data: { labels: lineLabels, datasets: [{
+      label: 'Retention %', data: lineData, borderColor: '#2979ff', backgroundColor: 'rgba(41,121,255,0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#2979ff'
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Retention % by Exact Deposit Count', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }, x: { ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Deposit Count', color: '#8a8d91' } } } }
   });
 }
 
+// ---- VIEW 5: Win-back Analysis ----
 function renderWinback() {
-  const allSnaps = loadAllSnapshots().filter(s => s.players && !s._trimmed);
-  const wc = document.getElementById('winbackContent');
-  if (allSnaps.length < 2) { wc.innerHTML = '<p style="color:var(--text-muted);padding:40px;text-align:center;">Need 2+ snapshots with full player data. Keep uploading weekly.</p>'; return; }
+  const container = document.getElementById('winbackSummary');
+  const table = document.getElementById('winbackTable');
+  const allSnaps = loadAllSnapshots();
 
-  const playerHistory = {};
-  allSnaps.forEach((snap, idx) => {
-    Object.entries(snap.players).forEach(([pid, p]) => {
-      if (!playerHistory[pid]) playerHistory[pid] = [];
-      playerHistory[pid].push({ week: idx, seg: p.seg || p.segment, date: snap.date });
+  if (allSnaps.length < 2) {
+    container.innerHTML = '<div class="insight-notice">⚠️ Need 2+ weekly snapshots to track win-backs. Keep uploading weekly.</div>';
+    return;
+  }
+
+  // Track: if a player was churned/atrisk in any previous snapshot but is now active/vip/new
+  const currentPlayers = {};
+  allPlayers.forEach(p => { currentPlayers[p.id] = p; });
+
+  const winbacks = [];
+  const everChurned = new Set();
+
+  // Go through snapshots oldest to newest
+  for (let i = 0; i < allSnaps.length - 1; i++) {
+    const snap = allSnaps[i];
+    if (!snap.players) continue;
+    Object.entries(snap.players).forEach(([id, p]) => {
+      const seg = p.seg || p.segment;
+      if (seg === 'churned' || seg === 'atrisk') everChurned.add(id + '|' + seg);
     });
-  });
+  }
 
-  let winbacks=0, totalChurned=0, winbackPlayers=[];
-  Object.entries(playerHistory).forEach(([pid, history]) => {
-    for (let i=0; i<history.length; i++) {
-      if (['churned','atrisk'].includes(history[i].seg)) {
-        totalChurned++;
-        for (let j=i+1; j<history.length; j++) {
-          if (['active','vip','new'].includes(history[j].seg)) {
-            winbacks++;
-            const player = allSnaps[allSnaps.length-1].players[pid];
-            const nm = player ? (player.nm||player.name||player.un||player.username||pid) : pid;
-            winbackPlayers.push({pid, name:nm, from:history[i].seg, to:history[j].seg, weeksGone:j-i});
-            break;
-          }
-        }
-        break;
-      }
+  // Check current state
+  everChurned.forEach(key => {
+    const [id, oldSeg] = key.split('|');
+    const current = currentPlayers[id];
+    if (current && ['active','vip','new'].includes(current.segment)) {
+      winbacks.push({ id, username: current.username || id, oldSeg, newSeg: current.segment, ggr: current.totalNGR });
     }
   });
 
-  const winbackRate = totalChurned>0?(winbacks/totalChurned*100):0;
-  let html = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
-    <div style="background:var(--card-bg);padding:16px;border-radius:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:#ffc107;">${totalChurned}</div><div style="font-size:12px;color:var(--text-muted);">Players ever churned/at-risk</div></div>
-    <div style="background:var(--card-bg);padding:16px;border-radius:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:#00c853;">${winbacks}</div><div style="font-size:12px;color:var(--text-muted);">Won back</div></div>
-    <div style="background:var(--card-bg);padding:16px;border-radius:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:${winbackRate>10?'#00c853':'#ff5722'};">${winbackRate.toFixed(1)}%</div><div style="font-size:12px;color:var(--text-muted);">Win-back rate</div></div></div>`;
+  const totalChurned = new Set([...everChurned].map(k => k.split('|')[0])).size;
+  const winbackRate = totalChurned > 0 ? (winbacks.length / totalChurned * 100) : 0;
 
-  if (winbackPlayers.length > 0) {
-    html += '<table class="player-table" style="font-size:12px;"><thead><tr><th>Player</th><th>Was</th><th>Returned As</th><th>Weeks Gone</th></tr></thead><tbody>';
-    winbackPlayers.slice(0,20).forEach(w => { html += `<tr><td>${w.name}</td><td><span class="seg-badge seg-${w.from}">${SEGMENT_NAMES[w.from]||w.from}</span></td><td><span class="seg-badge seg-${w.to}">${SEGMENT_NAMES[w.to]||w.to}</span></td><td>${w.weeksGone}</td></tr>`; });
-    html += '</tbody></table>';
-    if (winbackPlayers.length > 20) html += `<p style="color:var(--text-muted);font-size:12px;margin-top:8px;">Showing 20 of ${winbackPlayers.length}.</p>`;
-  } else {
-    html += '<p style="color:var(--text-muted);margin-top:16px;">No win-backs detected yet across snapshots.</p>';
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Ever Churned/At-Risk</div><div class="value">${totalChurned}</div><div class="sub">Across all snapshots</div></div>
+    <div class="insight-kpi"><div class="label">Won Back</div><div class="value" style="color:var(--green);">${winbacks.length}</div><div class="sub">Returned to active</div></div>
+    <div class="insight-kpi"><div class="label">Win-back Rate</div><div class="value">${winbackRate.toFixed(1)}%</div><div class="sub">Of previously lost players</div></div>
+    <div class="insight-kpi"><div class="label">Win-back GGR</div><div class="value">$${fmt(winbacks.reduce((s,w) => s+w.ggr, 0))}</div><div class="sub">Total from recovered players</div></div>
+  </div>`;
+
+  if (winbacks.length === 0) {
+    table.innerHTML = '<p style="color:var(--text-muted);">No win-backs detected yet.</p>';
+    return;
   }
-  wc.innerHTML = html;
+
+  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Player</th><th>Was</th><th>Now</th><th>GGR</th></tr></thead><tbody>';
+  winbacks.sort((a,b) => b.ggr - a.ggr).slice(0, 50).forEach(w => {
+    th += `<tr><td>${w.username}</td><td><span class="segment-badge ${w.oldSeg}">${w.oldSeg}</span></td><td><span class="segment-badge ${w.newSeg}">${w.newSeg}</span></td><td>$${fmt(w.ggr)}</td></tr>`;
+  });
+  th += '</tbody></table>';
+  table.innerHTML = th;
 }
 
-function renderConcentration(dep, totalNGR) {
-  const positivePlayers=dep.filter(p=>p.totalNGR>0);
-  const totalPositiveNGR=positivePlayers.reduce((s,p)=>s+p.totalNGR,0);
-  const negativeCount=dep.filter(p=>p.totalNGR<0).length;
-  const sorted=[...dep].sort((a,b)=>b.totalNGR-a.totalNGR);
-  const t10c=Math.max(1,Math.ceil(sorted.length*0.1));
-  const t10r=sorted.slice(0,t10c).reduce((s,p)=>s+p.totalNGR,0);
-  const t10s=totalPositiveNGR>0?(t10r/totalPositiveNGR*100):0;
-  const t1c=Math.max(1,Math.ceil(sorted.length*0.01));
-  const t1r=sorted.slice(0,t1c).reduce((s,p)=>s+p.totalNGR,0);
-  const t1s=totalPositiveNGR>0?(t1r/totalPositiveNGR*100):0;
+// ---- VIEW 6: Revenue Concentration ----
+function renderRevenueConcentration(dep, totalNGR) {
+  const container = document.getElementById('concSummary');
 
-  document.getElementById('revenueKpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Top 1% Revenue</div><div class="kpi-value">${t1s.toFixed(1)}%</div><div class="kpi-sub">${t1c} players</div></div>
-    <div class="kpi-card"><div class="kpi-label">Top 10% Revenue</div><div class="kpi-value">${t10s.toFixed(1)}%</div><div class="kpi-sub">${t10c} players</div></div>
-    <div class="kpi-card"><div class="kpi-label">Negative GGR</div><div class="kpi-value">${negativeCount}</div><div class="kpi-sub">${(negativeCount/dep.length*100).toFixed(1)}% net winners</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total GGR</div><div class="kpi-value">$${fmt(totalNGR)}</div><div class="kpi-sub">${dep.length} depositors</div></div>`;
+  const sorted = [...dep].sort((a,b) => b.totalNGR - a.totalNGR);
+  const t1c = Math.max(1, Math.ceil(sorted.length * 0.01));
+  const t10c = Math.max(1, Math.ceil(sorted.length * 0.1));
+  const positiveNGR = dep.filter(p => p.totalNGR > 0).reduce((s,p) => s+p.totalNGR, 0);
+  const t1r = sorted.slice(0, t1c).reduce((s,p) => s+p.totalNGR, 0);
+  const t10r = sorted.slice(0, t10c).reduce((s,p) => s+p.totalNGR, 0);
+  const t1pct = positiveNGR > 0 ? (t1r/positiveNGR*100) : 0;
+  const t10pct = positiveNGR > 0 ? (t10r/positiveNGR*100) : 0;
+  const negCount = dep.filter(p => p.totalNGR < 0).length;
 
-  // Pareto
-  const ps=[...dep].sort((a,b)=>b.totalNGR-a.totalNGR);
-  let run=0; const cum=ps.map(p=>{run+=p.totalNGR;return run;});
-  const cumP=cum.map(v=>totalNGR>0?(v/totalNGR*100):0);
-  const plP=ps.map((_,i)=>((i+1)/ps.length*100));
-  const step=Math.max(1,Math.floor(ps.length/50));
-  const sP=plP.filter((_,i)=>i%step===0||i===plP.length-1);
-  const sC=cumP.filter((_,i)=>i%step===0||i===cumP.length-1);
-  if(charts.insightPareto)charts.insightPareto.destroy();
-  charts.insightPareto = new Chart(document.getElementById('insightParetoChart'),{type:'line',data:{labels:sP.map(v=>v.toFixed(0)+'%'),datasets:[{label:'Cumulative Revenue %',data:sC,borderColor:'#e4002b',backgroundColor:'rgba(228,0,43,0.1)',fill:true,tension:0.3,pointRadius:0},{label:'Perfect Equality',data:sP,borderColor:'rgba(255,255,255,0.2)',borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91',maxTicksLimit:10},grid:{display:false}}}}});
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Top 1% Revenue Share</div><div class="value" style="color:#ffc107;">${t1pct.toFixed(1)}%</div><div class="sub">${t1c} players</div></div>
+    <div class="insight-kpi"><div class="label">Top 10% Revenue Share</div><div class="value" style="color:#ffc107;">${t10pct.toFixed(1)}%</div><div class="sub">${t10c} players</div></div>
+    <div class="insight-kpi"><div class="label">Negative GGR Players</div><div class="value" style="color:var(--red);">${negCount}</div><div class="sub">${(negCount/dep.length*100).toFixed(1)}% — won vs house</div></div>
+    <div class="insight-kpi"><div class="label">Total GGR</div><div class="value">$${fmt(totalNGR)}</div><div class="sub">${dep.length} depositors</div></div>
+  </div>`;
 
-  // Percentile
-  const sn=[...dep].sort((a,b)=>a.totalNGR-b.totalNGR);
-  const pcts=[10,25,50,75,90,95,99];
-  const pv=pcts.map(p=>{const i=Math.floor(sn.length*p/100);return sn[Math.min(i,sn.length-1)].totalNGR;});
-  if(charts.insightPercentile)charts.insightPercentile.destroy();
-  charts.insightPercentile = new Chart(document.getElementById('insightPercentileChart'),{type:'bar',data:{labels:pcts.map(p=>'P'+p),datasets:[{label:'GGR',data:pv,backgroundColor:pcts.map(p=>p>=90?'#ffc107':p>=75?'#00c853':p>=50?'#2979ff':'#8a8d91'),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}});
+  // Pareto curve
+  let run = 0;
+  const cum = sorted.map(p => { run += p.totalNGR; return run; });
+  const cumP = cum.map(v => totalNGR > 0 ? (v/totalNGR*100) : 0);
+  const plP = sorted.map((_, i) => ((i+1)/sorted.length*100));
+  const step = Math.max(1, Math.floor(sorted.length/50));
+  const sP = plP.filter((_, i) => i%step===0 || i===plP.length-1);
+  const sC = cumP.filter((_, i) => i%step===0 || i===cumP.length-1);
 
-  // GGR Trend
+  if (charts.insightPareto) charts.insightPareto.destroy();
+  charts.insightPareto = new Chart(document.getElementById('insightParetoChart'), {
+    type: 'line', data: { labels: sP.map(v => v.toFixed(0)+'%'), datasets: [
+      { label: 'Cumulative Revenue %', data: sC, borderColor: '#e4002b', backgroundColor: 'rgba(228,0,43,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+      { label: 'Perfect Equality', data: sP, borderColor: 'rgba(255,255,255,0.2)', borderDash: [5,5], pointRadius: 0, fill: false }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Pareto Curve — Revenue Concentration', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91', maxTicksLimit: 10 }, grid: { display: false } } } }
+  });
+
+  // Percentile bars
+  const sn = [...dep].sort((a,b) => a.totalNGR - b.totalNGR);
+  const pcts = [10,25,50,75,90,95,99];
+  const pv = pcts.map(p => { const i = Math.floor(sn.length*p/100); return sn[Math.min(i, sn.length-1)].totalNGR; });
+
+  if (charts.insightPct) charts.insightPct.destroy();
+  charts.insightPct = new Chart(document.getElementById('insightPercentileChart'), {
+    type: 'bar', data: { labels: pcts.map(p => 'P'+p), datasets: [{
+      label: 'GGR', data: pv,
+      backgroundColor: pcts.map(p => p>=90 ? '#ffc107' : p>=75 ? '#00c853' : p>=50 ? '#2979ff' : '#8a8d91'), borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'GGR by Percentile', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+  });
+
+  // GGR trend over time
   const allSnaps = loadAllSnapshots();
   if (allSnaps.length >= 2) {
-    const trendLabels=allSnaps.map(s=>new Date(s.date).toLocaleDateString());
-    if(charts.insightLtvTrend)charts.insightLtvTrend.destroy();
-    charts.insightLtvTrend = new Chart(document.getElementById('insightLtvTrendChart'),{type:'line',data:{labels:trendLabels,datasets:[
-      {label:'Avg GGR/Player',data:allSnaps.map(s=>s.ltv?s.ltv.avg:0),borderColor:'#e4002b',backgroundColor:'transparent',tension:0.3,pointRadius:4},
-      {label:'Median GGR',data:allSnaps.map(s=>s.ltv?s.ltv.med:0),borderColor:'#2979ff',backgroundColor:'transparent',tension:0.3,pointRadius:4,borderDash:[5,5]},
-      {label:'Total GGR',data:allSnaps.map(s=>s.ltv?s.ltv.total:0),borderColor:'#ffc107',backgroundColor:'transparent',tension:0.3,pointRadius:4,yAxisID:'y1'}
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a8d91'}}},scales:{y:{position:'left',ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{color:'rgba(255,255,255,0.04)'}},y1:{position:'right',ticks:{color:'#8a8d91',callback:v=>'$'+fmt(v)},grid:{display:false}},x:{ticks:{color:'#8a8d91'},grid:{display:false}}}}});
+    const trendLabels = allSnaps.map(s => new Date(s.date).toLocaleDateString());
+    const avgData = allSnaps.map(s => s.ltv ? s.ltv.avg : 0);
+    const medData = allSnaps.map(s => s.ltv ? s.ltv.med : 0);
+    const totalData = allSnaps.map(s => s.ltv ? s.ltv.total : 0);
+    if (charts.insightGgrTrend) charts.insightGgrTrend.destroy();
+    charts.insightGgrTrend = new Chart(document.getElementById('insightGgrTrendChart'), {
+      type: 'line', data: { labels: trendLabels, datasets: [
+        { label: 'Avg GGR', data: avgData, borderColor: '#e4002b', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4 },
+        { label: 'Median GGR', data: medData, borderColor: '#2979ff', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, borderDash: [5,5] },
+        { label: 'Total GGR', data: totalData, borderColor: '#ffc107', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, yAxisID: 'y1' }
+      ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'GGR Trend Over Time', color: '#8a8d91' } },
+        scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { display: false } },
+          x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+    });
   } else {
-    const el=document.getElementById('insightLtvTrendChart');
-    if(el) el.parentElement.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px;">Need 2+ weekly snapshots to show GGR trend.</p>';
+    const trendCanvas = document.getElementById('insightGgrTrendChart');
+    if (trendCanvas) trendCanvas.parentElement.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;">Need 2+ weekly snapshots for GGR trend.</p>';
   }
 }
 
