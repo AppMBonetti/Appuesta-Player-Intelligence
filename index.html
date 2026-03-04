@@ -1796,29 +1796,26 @@ function renderInsights() {
     const lastMonthStart = new Date(lastMonthYear, lastMonth, 1);
     const twoMonthStart = new Date(twoMonthsYear, twoMonthsAgo, 1);
 
-    // Current Retention: Of players who were active in last month, what % also active this month?
-    // "Active in Feb" = lastActivityDate in Feb OR later (if in March, they survived through Feb)
-    // BUT exclude players whose firstDepositDate is in current month (brand new, weren't in Feb pool)
+    // Current Retention: Of players active in last month (Feb), what % have activity in current month (Mar)?
+    // "Active in Feb" = firstActivity < Mar 1 AND lastActivity >= Feb 1
+    // This matches the monthly cohort logic exactly
     const febPool = dep.filter(p => {
       if (!p.lastActivityDate) return false;
-      if (p.lastActivityDate < lastMonthStart) return false; // dropped before Feb
-      // Exclude brand new players who only started this month
-      const fdd = p.firstDepositDate || p.firstActivityDate;
-      if (fdd && fdd >= curMonthStart) return false;
-      return true;
+      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
+      if (!first) return false;
+      return first < curMonthStart && p.lastActivityDate >= lastMonthStart;
     });
     const retainedIntoCurrent = febPool.filter(p => p.lastActivityDate >= curMonthStart);
     lastMonthPool = febPool.length;
     currentRetCount = retainedIntoCurrent.length;
     currentRetPct = lastMonthPool > 0 ? (currentRetCount / lastMonthPool * 100) : 0;
 
-    // LM Retention: Of players active 2 months ago, what % were active last month?
+    // LM Retention: Of players active 2 months ago (Jan), what % had activity last month (Feb)?
     const janPool = dep.filter(p => {
       if (!p.lastActivityDate) return false;
-      if (p.lastActivityDate < twoMonthStart) return false;
-      const fdd = p.firstDepositDate || p.firstActivityDate;
-      if (fdd && fdd >= lastMonthStart) return false; // exclude players new to last month
-      return true;
+      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
+      if (!first) return false;
+      return first < lastMonthStart && p.lastActivityDate >= twoMonthStart;
     });
     const retainedIntoLast = janPool.filter(p => p.lastActivityDate >= lastMonthStart);
     twoMonthPool = janPool.length;
@@ -1991,58 +1988,95 @@ function renderChurnTiming(dep) {
 // ---- VIEW 3: Monthly Cohort (ALL depositors per month) ----
 function renderMonthlyCohort(dep) {
   const container = document.getElementById('cohortTable');
-  const hasDates = dep.some(p => p.lastDepositDate || p.lastActivityDate);
-
-  // Group by month of LAST DEPOSIT (or last activity) to find "active that month"
-  // Since we have a single snapshot, we approximate: group by the month they were last active
-  // The best proxy for "deposited at least once in month X" from a single snapshot:
-  // We use lastDepositDate to determine which month the player last deposited in.
-  // For a true month-over-month view we'd need weekly snapshots, but this gives a useful breakdown.
+  const hasDates = dep.some(p => p.lastActivityDate);
 
   if (!hasDates) {
     container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available. Upload fresh CSVs to see Monthly Cohort data.</div>';
     return;
   }
 
-  // Group all depositors by their LAST DEPOSIT month (best single-snapshot proxy)
-  const months = {};
-  dep.forEach(p => {
-    const d = p.lastDepositDate || p.lastActivityDate;
-    if (!d) return;
-    const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    if (!months[k]) months[k] = [];
-    months[k].push(p);
-  });
+  // Build month-level activity: a player is "active in month X" if lastActivityDate >= start of X
+  // Since we only have lastActivityDate, a player active in month X means lastActivityDate >= X start
+  // They are "still active in month X+1" if lastActivityDate >= X+1 start
+  const now = new Date();
+  const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const mk = Object.keys(months).sort();
-  if (mk.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No deposit date data available.</p>'; return; }
+  // Find all months where we have data: from earliest firstDepositDate to current
+  const allDates = dep.map(p => p.lastActivityDate).filter(Boolean);
+  if (allDates.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No activity date data.</p>'; return; }
 
-  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Players</th><th>Avg GGR</th><th>Avg Deposits</th><th>% Still Active</th><th>% Cooling/At-Risk</th><th>% Churned</th></tr></thead><tbody>';
-  mk.forEach(k => {
-    const cp = months[k];
-    const t = cp.length;
-    const ac = cp.filter(p => ['active','vip','new'].includes(p.segment)).length;
-    const ca = cp.filter(p => ['cooling','atrisk'].includes(p.segment)).length;
-    const cc = cp.filter(p => p.segment === 'churned').length;
-    const ap = (ac/t*100), cap = (ca/t*100), chp = (cc/t*100);
-    const avgG = cp.reduce((s,p) => s+p.totalNGR, 0) / t;
-    const avgD = cp.reduce((s,p) => s+p.totalDeposits, 0) / t;
-    th += `<tr><td style="font-weight:600;">${k}</td><td>${t}</td><td>$${fmt(avgG)}</td><td>$${fmt(avgD)}</td>`;
-    th += `<td style="background:${ap>60?'rgba(0,200,83,0.3)':ap>30?'rgba(255,193,7,0.3)':'rgba(255,87,34,0.3)'};">${ap.toFixed(1)}%</td>`;
-    th += `<td style="background:${cap>30?'rgba(255,152,0,0.3)':'rgba(255,255,255,0.05)'};">${cap.toFixed(1)}%</td>`;
-    th += `<td style="background:${chp>50?'rgba(255,87,34,0.3)':chp>25?'rgba(255,193,7,0.3)':'rgba(0,200,83,0.3)'};">${chp.toFixed(1)}%</td></tr>`;
+  const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+  const months = [];
+  let d = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  while (d <= curMonthStart) {
+    months.push({ year: d.getFullYear(), month: d.getMonth(), key: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') });
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+
+  // For each month, find players whose lastActivityDate >= that month's start
+  // This means they were active at least up to that month
+  // "Active in month X" = lastActivityDate is IN month X or later
+  // More precisely: lastActivityDate falls within month X = last activity was in that month
+  // OR lastActivityDate > month X = they were active beyond that month too
+  // A player's active months = from firstActivity month through lastActivity month
+  const monthData = months.map(m => {
+    const mStart = new Date(m.year, m.month, 1);
+    const mEnd = new Date(m.year, m.month + 1, 1);
+    const nextMStart = mEnd;
+    const nextMEnd = new Date(m.year, m.month + 2, 1);
+
+    // Players active in this month: firstActivity <= end of month AND lastActivity >= start of month
+    const activePlayers = dep.filter(p => {
+      if (!p.lastActivityDate) return false;
+      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
+      if (!first) return false;
+      return first < mEnd && p.lastActivityDate >= mStart;
+    });
+
+    // Of those, how many were also active next month?
+    const retainedNextMonth = activePlayers.filter(p => p.lastActivityDate >= nextMStart);
+    
+    // Of those, how many are still active to date (current month)?
+    const stillActiveToDate = activePlayers.filter(p => p.lastActivityDate >= curMonthStart);
+
+    const t = activePlayers.length;
+    const avgG = t > 0 ? activePlayers.reduce((s,p) => s+p.totalNGR, 0) / t : 0;
+    const avgD = t > 0 ? activePlayers.reduce((s,p) => s+p.totalDeposits, 0) / t : 0;
+    const nextMonthPct = t > 0 ? (retainedNextMonth.length / t * 100) : 0;
+    const toDatePct = t > 0 ? (stillActiveToDate.length / t * 100) : 0;
+    const isCurrent = (m.year === now.getFullYear() && m.month === now.getMonth());
+
+    return { ...m, players: activePlayers, total: t, avgGGR: avgG, avgDep: avgD,
+      retainedNext: retainedNextMonth.length, nextMonthPct,
+      stillActive: stillActiveToDate.length, toDatePct, isCurrent };
+  }).filter(m => m.total > 0);
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Active Players</th><th>Avg GGR</th><th>Avg Deposits</th><th>% Retained Next Mo</th><th>% Still Active Today</th></tr></thead><tbody>';
+  monthData.forEach(m => {
+    const label = monthNames[m.month] + ' ' + m.year;
+    const nextCol = m.isCurrent ? '<td style="color:var(--text-muted);">—</td>' :
+      `<td style="background:${m.nextMonthPct>50?'rgba(0,200,83,0.3)':m.nextMonthPct>25?'rgba(255,193,7,0.3)':'rgba(255,87,34,0.3)'};">${m.nextMonthPct.toFixed(1)}% <span style="font-size:10px;color:var(--text-muted);">(${m.retainedNext})</span></td>`;
+    const todayCol = m.isCurrent ? '<td style="color:var(--text-muted);">—</td>' :
+      `<td style="background:${m.toDatePct>40?'rgba(0,200,83,0.3)':m.toDatePct>20?'rgba(255,193,7,0.3)':'rgba(255,87,34,0.3)'};">${m.toDatePct.toFixed(1)}% <span style="font-size:10px;color:var(--text-muted);">(${m.stillActive})</span></td>`;
+    th += `<tr><td style="font-weight:600;">${label}</td><td>${m.total}</td><td>$${fmt(m.avgGGR)}</td><td>$${fmt(m.avgDep)}</td>${nextCol}${todayCol}</tr>`;
   });
   th += '</tbody></table>';
+  th += '<p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Active = had activity (deposit/bet) during that month. Next Mo = % who also had activity the following month. Today = % with activity in current month ('+monthNames[now.getMonth()]+').</p>';
   container.innerHTML = th;
 
-  // Chart: Avg GGR per month + player count
+  // Chart: Retention curve — next month vs to-date by month
+  const chartMonths = monthData.filter(m => !m.isCurrent);
   if (charts.cohortValue) charts.cohortValue.destroy();
   charts.cohortValue = new Chart(document.getElementById('cohortValueChart'), {
-    type: 'bar', data: { labels: mk, datasets: [
-      { label: 'Avg GGR', data: mk.map(k => months[k].reduce((s,p) => s+p.totalNGR, 0) / months[k].length), backgroundColor: '#e4002b', borderRadius: 6, yAxisID: 'y' },
-      { label: 'Players', data: mk.map(k => months[k].length), type: 'line', borderColor: '#2979ff', pointBackgroundColor: '#2979ff', yAxisID: 'y1', tension: 0.3 }
-    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } } },
-      scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Avg GGR', color: '#8a8d91' } },
+    type: 'bar', data: { labels: chartMonths.map(m => monthNames[m.month] + ' ' + String(m.year).slice(2)),
+    datasets: [
+      { label: '% Retained Next Month', data: chartMonths.map(m => m.nextMonthPct), backgroundColor: 'rgba(41,121,255,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { label: '% Still Active Today', data: chartMonths.map(m => m.toDatePct), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { label: 'Active Players', data: chartMonths.map(m => m.total), type: 'line', borderColor: '#ffc107', pointBackgroundColor: '#ffc107', yAxisID: 'y1', tension: 0.3 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Monthly Retention — Next Month vs Still Active Today', color: '#8a8d91' } },
+      scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Retention %', color: '#8a8d91' } },
         y1: { position: 'right', ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Players', color: '#8a8d91' } },
         x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
@@ -2051,6 +2085,9 @@ function renderMonthlyCohort(dep) {
 // ---- VIEW 4: Behavioral Signals ----
 function renderBehavioralSignals(dep) {
   const container = document.getElementById('signalsSummary');
+  const now = new Date();
+  const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const hasDates = dep.some(p => p.lastActivityDate && p.firstActivityDate);
   
   const depBuckets = [
     { label: '1 deposit', min: 1, max: 1 },
@@ -2060,11 +2097,27 @@ function renderBehavioralSignals(dep) {
     { label: '11+ deposits', min: 11, max: 99999 }
   ];
 
-  const isRetained = p => ['active','vip','new'].includes(p.segment);
+  // "Currently active" = lastActivityDate in current month
+  const isCurrentlyActive = p => p.lastActivityDate && p.lastActivityDate >= curMonthStart;
+  // Fallback if no dates: use segment
+  const isRetained = hasDates ? isCurrentlyActive : (p => ['active','vip','new'].includes(p.segment));
+
   const bucketData = depBuckets.map(b => {
     const group = dep.filter(p => p.depositCount >= b.min && p.depositCount <= b.max);
     const retained = group.filter(isRetained).length;
-    return { label: b.label, total: group.length, retained, rate: group.length > 0 ? (retained/group.length*100) : 0 };
+    // Avg active lifespan in months (from first to last activity)
+    let avgLifespanMonths = 0;
+    if (hasDates) {
+      const withDates = group.filter(p => p.firstActivityDate && p.lastActivityDate);
+      if (withDates.length > 0) {
+        const lifespans = withDates.map(p => {
+          const days = Math.max(0, (p.lastActivityDate - p.firstActivityDate) / 86400000);
+          return days / 30.44; // convert to months
+        });
+        avgLifespanMonths = lifespans.reduce((s,v) => s+v, 0) / lifespans.length;
+      }
+    }
+    return { label: b.label, total: group.length, retained, rate: group.length > 0 ? (retained/group.length*100) : 0, avgLifespanMonths };
   });
 
   const single = bucketData[0];
@@ -2084,32 +2137,44 @@ function renderBehavioralSignals(dep) {
     <div class="insight-kpi"><div class="label">Casino-only Retention</div><div class="value">${casinoRet.toFixed(1)}%</div><div class="sub">${casinoOnly.length} players</div></div>
   </div>`;
 
-  // Bar: retention rate by deposit count bucket
+  // Bar chart: retention rate + avg lifespan by deposit bucket
   if (charts.signals) charts.signals.destroy();
   charts.signals = new Chart(document.getElementById('signalsChart'), {
-    type: 'bar', data: { labels: bucketData.map(b => b.label), datasets: [{
-      label: 'Retention Rate %', data: bucketData.map(b => b.rate),
-      backgroundColor: bucketData.map(b => b.rate >= 50 ? 'rgba(0,200,83,0.7)' : b.rate >= 25 ? 'rgba(255,193,7,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6
-    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Retention Rate by Deposit Count', color: '#8a8d91' } },
-      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+    type: 'bar', data: { labels: bucketData.map(b => b.label), datasets: [
+      { label: 'Current Retention %', data: bucketData.map(b => b.rate),
+        backgroundColor: bucketData.map(b => b.rate >= 50 ? 'rgba(0,200,83,0.7)' : b.rate >= 25 ? 'rgba(255,193,7,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6, yAxisID: 'y' },
+      ...(hasDates ? [{ label: 'Avg Lifespan (months)', data: bucketData.map(b => b.avgLifespanMonths),
+        type: 'line', borderColor: '#2979ff', pointBackgroundColor: '#2979ff', yAxisID: 'y1', tension: 0.3, pointRadius: 5 }] : [])
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Retention & Lifespan by Deposit Count', color: '#8a8d91' } },
+      scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Retention %', color: '#8a8d91' } },
+        y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => v.toFixed(1)+'mo' }, grid: { display: false }, title: { display: true, text: 'Avg Lifespan', color: '#8a8d91' } },
+        x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 
   // Line: retention % for each deposit count 1-20
   const maxDC = Math.min(20, Math.max(...dep.map(p => p.depositCount)));
-  const lineLabels = []; const lineData = [];
+  const lineLabels = []; const lineData = []; const lifespanLineData = [];
   for (let i = 1; i <= maxDC; i++) {
     const group = dep.filter(p => p.depositCount === i);
     if (group.length < 2) continue;
     lineLabels.push(i + '');
     lineData.push(group.filter(isRetained).length / group.length * 100);
+    if (hasDates) {
+      const wd = group.filter(p => p.firstActivityDate && p.lastActivityDate);
+      const avg = wd.length > 0 ? wd.reduce((s,p) => s + Math.max(0, (p.lastActivityDate - p.firstActivityDate) / 86400000 / 30.44), 0) / wd.length : 0;
+      lifespanLineData.push(avg);
+    }
   }
 
   if (charts.depCountRet) charts.depCountRet.destroy();
   charts.depCountRet = new Chart(document.getElementById('depCountRetChart'), {
-    type: 'line', data: { labels: lineLabels, datasets: [{
-      label: 'Retention %', data: lineData, borderColor: '#2979ff', backgroundColor: 'rgba(41,121,255,0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#2979ff'
-    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Retention % by Exact Deposit Count', color: '#8a8d91' } },
-      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }, x: { ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Deposit Count', color: '#8a8d91' } } } }
+    type: 'line', data: { labels: lineLabels, datasets: [
+      { label: 'Retention %', data: lineData, borderColor: '#2979ff', backgroundColor: 'rgba(41,121,255,0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#2979ff', yAxisID: 'y' },
+      ...(hasDates ? [{ label: 'Avg Lifespan (months)', data: lifespanLineData, borderColor: '#ffc107', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#ffc107', yAxisID: 'y1', borderDash: [5,5] }] : [])
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Retention % & Lifespan by Exact Deposit Count', color: '#8a8d91' } },
+      scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Retention %', color: '#8a8d91' } },
+        y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => v.toFixed(1)+'mo' }, grid: { display: false }, title: { display: true, text: 'Avg Lifespan', color: '#8a8d91' } },
+        x: { ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Deposit Count', color: '#8a8d91' } } } }
   });
 }
 
