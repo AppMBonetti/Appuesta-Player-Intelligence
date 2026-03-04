@@ -840,7 +840,7 @@ body {
 
   <!-- ============ INSIGHTS TAB ============ -->
   <div class="section" id="tab-insights">
-    <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);" id="insightsKpis"></div>
+    <div class="kpi-row" style="grid-template-columns:repeat(6,1fr);" id="insightsKpis"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="insightNav">
       <button class="btn btn-sm insight-btn active" onclick="showInsightView('profitability')" data-view="profitability">💰 Time to Profit</button>
       <button class="btn btn-sm insight-btn" onclick="showInsightView('churn')" data-view="churn">⏱ Churn Timing</button>
@@ -1776,15 +1776,66 @@ function renderInsights() {
   const medGGR = getMedian(dep.map(p => p.totalNGR));
   const profitableCount = dep.filter(p => p.totalNGR >= 50).length;
   const profitPct = (profitableCount / dep.length * 100);
-  const activeCount = dep.filter(p => ['active','vip','new'].includes(p.segment)).length;
-  const retentionPct = (activeCount / dep.length * 100);
   const avgDep = dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length;
+
+  // Current Retention: of players active last month, what % have activity THIS month?
+  // LM Retention: of players active 2 months ago, what % had activity last month?
+  const now = new Date();
+  const curYear = now.getFullYear(), curMonth = now.getMonth(); // March = 2
+  const lastMonth = curMonth === 0 ? 11 : curMonth - 1;
+  const lastMonthYear = curMonth === 0 ? curYear - 1 : curYear;
+  const twoMonthsAgo = lastMonth === 0 ? 11 : lastMonth - 1;
+  const twoMonthsYear = lastMonth === 0 ? lastMonthYear - 1 : lastMonthYear;
+
+  const hasDates = dep.some(p => p.lastActivityDate);
+  let currentRetPct = 0, currentRetCount = 0, lastMonthPool = 0;
+  let lmRetPct = 0, lmRetCount = 0, twoMonthPool = 0;
+
+  if (hasDates) {
+    const curMonthStart = new Date(curYear, curMonth, 1);
+    const lastMonthStart = new Date(lastMonthYear, lastMonth, 1);
+    const twoMonthStart = new Date(twoMonthsYear, twoMonthsAgo, 1);
+
+    // Current Retention: Of players who were active in last month, what % also active this month?
+    // "Active in Feb" = lastActivityDate in Feb OR later (if in March, they survived through Feb)
+    // BUT exclude players whose firstDepositDate is in current month (brand new, weren't in Feb pool)
+    const febPool = dep.filter(p => {
+      if (!p.lastActivityDate) return false;
+      if (p.lastActivityDate < lastMonthStart) return false; // dropped before Feb
+      // Exclude brand new players who only started this month
+      const fdd = p.firstDepositDate || p.firstActivityDate;
+      if (fdd && fdd >= curMonthStart) return false;
+      return true;
+    });
+    const retainedIntoCurrent = febPool.filter(p => p.lastActivityDate >= curMonthStart);
+    lastMonthPool = febPool.length;
+    currentRetCount = retainedIntoCurrent.length;
+    currentRetPct = lastMonthPool > 0 ? (currentRetCount / lastMonthPool * 100) : 0;
+
+    // LM Retention: Of players active 2 months ago, what % were active last month?
+    const janPool = dep.filter(p => {
+      if (!p.lastActivityDate) return false;
+      if (p.lastActivityDate < twoMonthStart) return false;
+      const fdd = p.firstDepositDate || p.firstActivityDate;
+      if (fdd && fdd >= lastMonthStart) return false; // exclude players new to last month
+      return true;
+    });
+    const retainedIntoLast = janPool.filter(p => p.lastActivityDate >= lastMonthStart);
+    twoMonthPool = janPool.length;
+    lmRetCount = retainedIntoLast.length;
+    lmRetPct = twoMonthPool > 0 ? (lmRetCount / twoMonthPool * 100) : 0;
+  }
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const curMonthName = monthNames[curMonth];
+  const lastMonthName = monthNames[lastMonth];
 
   document.getElementById('insightsKpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Avg GGR/Player</div><div class="kpi-value">$${fmt(avgGGR)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
     <div class="kpi-card"><div class="kpi-label">Median GGR</div><div class="kpi-value">$${fmt(medGGR)}</div><div class="kpi-sub">50th percentile</div></div>
     <div class="kpi-card"><div class="kpi-label">Profitable (≥$50)</div><div class="kpi-value">${profitableCount}</div><div class="kpi-sub">${profitPct.toFixed(1)}% of depositors</div></div>
-    <div class="kpi-card"><div class="kpi-label">Current Retention</div><div class="kpi-value">${retentionPct.toFixed(1)}%</div><div class="kpi-sub">${activeCount} active players</div></div>
+    <div class="kpi-card"><div class="kpi-label">Current Retention (${curMonthName})</div><div class="kpi-value" style="color:${currentRetPct>=50?'var(--green)':currentRetPct>=25?'#ffc107':'var(--red)'};">${hasDates ? currentRetPct.toFixed(1)+'%' : '—'}</div><div class="kpi-sub">${hasDates ? currentRetCount+' of '+lastMonthPool+' '+lastMonthName+' players' : 'Need date fields'}</div></div>
+    <div class="kpi-card"><div class="kpi-label">LM Retention (${lastMonthName})</div><div class="kpi-value">${hasDates ? lmRetPct.toFixed(1)+'%' : '—'}</div><div class="kpi-sub">${hasDates ? lmRetCount+' retained from prior month' : 'Need date fields'}</div></div>
     <div class="kpi-card"><div class="kpi-label">Avg Deposit</div><div class="kpi-value">$${fmt(avgDep)}</div><div class="kpi-sub">Per depositor</div></div>`;
 
   renderTimeToProfitability(dep);
