@@ -34,6 +34,23 @@
   --segment-atrisk: #ff5722;
   --segment-churned: #9e9e9e;
   --segment-registered: #7c4dff;
+  --border-subtle: var(--border-subtle);
+  --chart-grid: rgba(255,255,255,0.04);
+  --chart-text: #8a8d91;
+  --scrollbar-thumb: #53565a;
+}
+
+[data-theme="light"] {
+  --bg: #f4f5f7;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f1f3;
+  --bg-surface: #e8e9ea;
+  --text: #1a1c1e;
+  --text-muted: #6b6e73;
+  --border-subtle: rgba(0,0,0,0.08);
+  --chart-grid: rgba(0,0,0,0.06);
+  --chart-text: #6b6e73;
+  --scrollbar-thumb: #c0c2c5;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -48,10 +65,10 @@ body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--gray); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
 
 .header {
-  background: linear-gradient(135deg, var(--bg-card) 0%, #1a1e26 100%);
+  background: var(--bg-card);
   border-bottom: 1px solid rgba(228,0,43,0.2);
   padding: 16px 32px;
   display: flex;
@@ -66,11 +83,8 @@ body {
 .header-left { display: flex; align-items: center; gap: 16px; }
 
 .logo {
-  font-family: 'Space Mono', monospace;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--red);
-  letter-spacing: -0.5px;
+  height: 22px;
+  margin-left: 4px;
 }
 
 .logo-sub {
@@ -82,6 +96,19 @@ body {
 }
 
 .header-right { display: flex; align-items: center; gap: 12px; }
+
+.theme-toggle {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.2s;
+  color: var(--text);
+}
+.theme-toggle:hover { background: var(--bg-card-hover); }
 
 .snapshot-badge {
   background: rgba(228,0,43,0.1);
@@ -143,7 +170,7 @@ body {
   background: var(--bg-card);
   border-radius: 16px;
   padding: 28px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .upload-instructions h2 { font-size: 20px; margin-bottom: 8px; }
@@ -159,7 +186,7 @@ body {
   background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .upload-step .step-num {
@@ -225,7 +252,7 @@ body {
   background: var(--bg-surface);
   border-radius: 12px;
   padding: 18px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .backup-box h4 { font-size: 13px; margin-bottom: 6px; font-weight: 600; }
@@ -266,7 +293,7 @@ body {
   background: var(--bg-card);
   border-radius: 14px;
   padding: 20px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
   transition: all 0.2s;
 }
 
@@ -325,7 +352,7 @@ body {
   color: var(--text-muted);
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .segment-revenue span { font-family: 'Space Mono', monospace; color: var(--text); font-weight: 600; }
@@ -337,7 +364,7 @@ body {
   background: var(--bg-card);
   border-radius: 14px;
   padding: 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .chart-card.full-width { grid-column: 1 / -1; }
@@ -349,7 +376,7 @@ body {
   background: var(--bg-card);
   border-radius: 14px;
   padding: 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .definitions-panel h3 { font-size: 16px; margin-bottom: 16px; }
@@ -413,7 +440,7 @@ body {
   background: var(--bg-card);
   border-radius: 14px;
   padding: 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .action-item {
@@ -480,7 +507,7 @@ body {
 .player-table-wrap {
   overflow-x: auto;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .player-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -498,7 +525,7 @@ body {
   top: 0;
   cursor: pointer;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .player-table th:hover { color: var(--text); }
@@ -589,7 +616,7 @@ body {
   background: var(--bg-card);
   border-radius: 14px;
   padding: 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 .settings-card h3 { font-size: 16px; margin-bottom: 16px; }
@@ -660,11 +687,12 @@ body {
 <div class="header">
   <div class="header-left">
     <div>
-      <div class="logo">APPUESTA</div>
+      <img class="logo" src="data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIxOTUgNDI4IDE1MzAgMjMwIj48cGF0aCBkPSJNMzY2LjMxMiw0NDEuNzY3NGgtNzkuNzk5Yy0yLjg1MjQsMC01LjQ1OSwxLjYxNDYtNi43Mjk1LDQuMTY4NGwtNzQuNTE5MywxNDkuNzk0MWMtMS4xOTY0LDIuNDA1LTEuMDE4NSw1LjI2NTcuNDY2OCw3LjUwMzhsMjEuMTE3NiwzMS44MjE0YzEuMzkyNywyLjA5ODYsMy43NDM5LDMuMzYwMSw2LjI2MjYsMy4zNjAxaDMwLjc3MjhjMi44NTMsMCw1LjQ2MDEtMS42MTUzLDYuNzMwMi00LjE3bDY5LjA2NDktMTM4LjkxMXYxMDIuMTQ4MWMwLDEuNDc4NS40MzYsMi45MjQxLDEuMjUzNiw0LjE1NmwyMi4xNzYyLDMzLjQxNjdjMS4zOTI3LDIuMDk4NiwzLjc0MzksMy4zNjAyLDYuMjYyNiwzLjM2MDJoNDcuMjkwNmM0LjE1MTEsMCw3LjUxNjItMy4zNjUxLDcuNTE2Mi03LjUxNjJ2LTE4MS42MTU1YzAtNC4xNTExLTMuMzY1MS03LjUxNjItNy41MTYyLTcuNTE2MmgtNTAuMzUwMloiIGZpbGw9IiNlNDAwMmIiLz48cGF0aCBkPSJNNDYyLjg3OTcsNDQxLjU4MTloNTYuODY0M3YxOTYuODM2M2gtNTYuODY0M3YtMTk2LjgzNjNaTTQ4My45MzA1LDUzNC41MzI2aDY3LjUyNjFjOS4yOTU1LDAsMTYuMTcyOC0xLjUwNDcsMjAuNjQxNC00LjUxMDMsNC40NjMtMy4wMDk0LDYuNjk3My04LjUyMDQsNi42OTczLTE2LjU0MDQsMC04Ljc0NzgtMi4zMjM0LTE0LjcxNzMtNi45NzIxLTE3LjkwODctNC42NDY4LTMuMTgzOC0xMS40Mzg4LTQuNzgzMi0yMC4zNjY2LTQuNzgzMmgtNjQuNzkxNXYtNDkuMjA4MWg4MS4xOTU1YzIxLjEzOTgsMCwzNy4zMTY0LDYuMzgyNyw0OC41MjU5LDE5LjEzNjcsMTEuMjA3NiwxMi43NTc4LDE2LjgxMTQsMzAuMzQ0MywxNi44MTE0LDUyLjc2MzMsMCwyMS44Njk0LTUuNjAzOCwzOS4wNTA0LTE2LjgxMTQsNTEuNTMxNS0xMS4yMDk1LDEyLjQ4ODctMjcuMzg2MSwxOC43Mjc0LTQ4LjUyNTksMTguNzI3NGgtODMuOTMwMXYtNDkuMjA4MVoiIGZpbGw9IiNlNDAwMmIiLz48cGF0aCBkPSJNNjQ5LjU5OTksNDQxLjU4MTloNTYuODY0M3YxOTYuODM2M2gtNTYuODY0M3YtMTk2LjgzNjNaTTY3MC42NTA3LDUzNC41MzI2aDY3LjUyNjFjOS4yOTU1LDAsMTYuMTcyOC0xLjUwNDcsMjAuNjQxNC00LjUxMDMsNC40NjMtMy4wMDk0LDYuNjk3My04LjUyMDQsNi42OTczLTE2LjU0MDQsMC04Ljc0NzgtMi4zMjM0LTE0LjcxNzMtNi45NzIxLTE3LjkwODctNC42NDY4LTMuMTgzOC0xMS40Mzg4LTQuNzgzMi0yMC4zNjY2LTQuNzgzMmgtNjQuNzkxNXYtNDkuMjA4MWg4MS4xOTU1YzIxLjEzOTgsMCwzNy4zMTY0LDYuMzgyNyw0OC41MjU5LDE5LjEzNjcsMTEuMjA3NiwxMi43NTc4LDE2LjgxMTQsMzAuMzQ0MywxNi44MTE0LDUyLjc2MzMsMCwyMS44Njk0LTUuNjAzOCwzOS4wNTA0LTE2LjgxMTQsNTEuNTMxNS0xMS4yMDk1LDEyLjQ4ODctMjcuMzg2MSwxOC43Mjc0LTQ4LjUyNTksMTguNzI3NGgtODMuOTMwMXYtNDkuMjA4MVoiIGZpbGw9IiNlNDAwMmIiLz48cGF0aCBkPSJNODU3LjUwOTMsNjI2LjM4ODFjLTE1LjAzNTctMTAuOTM0Ny0yMi41NTM2LTI4LjUyMTItMjIuNTUzNi01Mi43NjMzdi0xMzIuMDQyOWg1Ni41OTE0djExOS43NDM3YzAsMTAuMjA3LDIuNzMyNywxOC4xMzYxLDguMjAwMSwyMy43ODM1LDUuNDY3NCw1LjY1MTIsMTMuMTIzNiw4LjQ3NDksMjIuOTY0OCw4LjQ3NDksMTAuNTY5LDAsMTguMzE2MS0yLjczMjcsMjMuMjM3Ny04LjIwMiw0LjkyMTYtNS40NjkzLDcuMzgxNC0xMy40ODU1LDcuMzgxNC0yNC4wNTY0di0xMTkuNzQzN2g1Ni41ODk1djEzMi4wNDI5YzAsMjQuNDI3OC03LjkyNzIsNDIuMDU5OC0yMy43ODM1LDUyLjg5OTgtMTUuODU2MywxMC44NDc1LTM3LjU0NzYsMTYuMjY3NS02NS4wNjYzLDE2LjI2NzUtMjcuMzM2OCwwLTQ4LjUyNC01LjQ2OTMtNjMuNTYxNi0xNi40MDRaIiBmaWxsPSIjZTQwMDJiIi8+PHBhdGggZD0iTTEwMzAuNDIxOCw0NDEuNTgxOWg1Ni41OTE0djE5Ni44MzYzaC01Ni41OTE0di0xOTYuODM2M1pNMTA1Mi4wMjAyLDQ0MS41ODE5aDEyOC40ODk2djQ5LjIwODFoLTEyOC40ODk2di00OS4yMDgxWk0xMDUzLjM4NjYsNTE2LjQ4NzVoMTI1Ljc1Njh2NDkuMjExOWgtMTI1Ljc1Njh2LTQ5LjIxMTlaTTEwNTMuMzg2Niw1ODkuMjFoMTI4LjQ5MTR2NDkuMjA4MWgtMTI4LjQ5MTR2LTQ5LjIwODFaIiBmaWxsPSIjZTQwMDJiIi8+PHBhdGggZD0iTTEyMzUuMzIxNyw2MzUuODIxOWMtMTIuMzAxMS00LjY0NjgtMjEuNDYwMS0xMi40Mzk0LTI3LjQ3MzItMjMuMzc0MS02LjAxNS0xMC45MzQ3LTguOTMzNS0yNS44Nzk1LTguNzQ5Ny00NC44MzQyaDYwLjk2NTNjLjM2Miw4LjM4MzksMi45NjAxLDE0LjU4MDksNy43OTA3LDE4LjU4NzEsNC44MjY4LDQuMDEzOCwxMi44MDMzLDYuMDE1LDIzLjkyMTgsNi4wMTUsNi43NDA5LDAsMTIuMDI4Mi0uODY0MiwxNS44NTYzLTIuNTk2MywzLjgyNjItMS43MzIxLDUuNzQwMy00LjY5MjMsNS43NDAzLTguODg0MiwwLTMuODI4MS0xLjU1MDItNi44NzkyLTQuNjQ2OC05LjE2MDktMy4xMDIzLTIuMjc0MS03LjEwODUtNC4xMDEtMTIuMDI4Mi01LjQ2NTUtNC45MjE2LTEuMzY4My0xMS43NTcyLTIuODczLTIwLjUwNS00LjUxMDMtMTUuMzA4Ni0yLjkxNDctMjcuOTc5Mi02LjE1MTUtMzguMDAwNS05LjcwNjctMTAuMDI1MS0zLjU1NTItMTguNzI3NC05LjY1NzQtMjYuMTA2OS0xOC4zMTgtNy4zODE0LTguNjUzLTExLjA3MzEtMjAuNTQ2Ny0xMS4wNzMxLTM1LjY3MzMsMC0xNy44NjMyLDYuMTkzMi0zMi40NDAzLDE4LjU5MDktNDMuNzQyNywxMi4zOTItMTEuMjk4NiwzMy44OTk1LTE2Ljk0OTgsNjQuNTE4Ni0xNi45NDk4LDI5LjE1OCwwLDQ5LjkzMzksNS43ODc2LDYyLjMzMTcsMTcuMzU5MSwxMi4zOTIsMTEuNTc1MywxOC40MDUyLDI5LjIxMSwxOC4wNDMyLDUyLjg5OThoLTU0Ljk1MDNjMC02LjE5MzItMi4wOTc5LTExLjE2MjEtNi4yODc5LTE0Ljg5OTMtNC4xOTU3LTMuNzMzMy0xMS4wMjk1LTUuNjA1Ny0yMC41MDUtNS42MDU3LTEyLjk0MTYsMC0xOS40MDk2LDMuNjUtMTkuNDA5NiwxMC45Mzg1LDAsMy40NjQyLDEuMzY2NCw2LjI0MjUsNC4xMDEsOC4zMzg0LDIuNzMyNywyLjA5Niw2LjI4NzksMy43ODI2LDEwLjY2MTgsNS4wNTYxLDQuMzczOSwxLjI3NzMsMTAuMzg4OSwyLjY0NTYsMTguMDQzMiw0LjEwMSwxNC41NzksMi45MTg1LDI2Ljc0NTUsNi4yNDYyLDM2LjQ5NzcsOS45Nzk2LDkuNzQ2NSwzLjczNzEsMTguMjIxNCwxMC4xNjE1LDI1LjQyNDYsMTkuMjczMSw3LjE5NzYsOS4xMTU0LDEwLjc5ODMsMjEuNzc4NSwxMC43OTgzLDM4LjAwMDUsMCwyMC43NzQxLTYuODM1NiwzNS45OTU1LTIwLjUwNSw0NS42NTI5LTEzLjY2OTMsOS42NjUtMzUuMjY1OSwxNC40ODk5LTY0Ljc5MTUsMTQuNDg5OS0xOS44NjYzLDAtMzUuOTUtMi4zMjM0LTQ4LjI1My02Ljk3MDJaIiBmaWxsPSIjZTQwMDJiIi8+PHBhdGggZD0iTTEzNzUuMTYxLDQ0MS41ODE5aDE2MS4yOTU2djQ5LjIwODFoLTE2MS4yOTU2di00OS4yMDgxWk0xNDI3LjY0OTYsNDQxLjU4MTloNTYuNTkxNHYxOTYuODM2M2gtNTYuNTkxNHYtMTk2LjgzNjNaIiBmaWxsPSIjZTQwMDJiIi8+PHBhdGggZD0iTTE1ODIuNjU3Miw0NDEuNTgxOWg3Mi43MjA2bDYwLjE0NDcsMTk2LjgzNjNoLTYwLjQxNzZsLTM4LjI3MzQtMTM5LjE1MzNoNC45MTk3bC00MC40NjAzLDEzOS4xNTMzaC02MC40MTc2bDYxLjc4NC0xOTYuODM2M1pNMTU3MS43MjI1LDU1OC44NjE5aDg4LjMwMjF2NDkuMjExOWgtODguMzAyMXYtNDkuMjExOVoiIGZpbGw9IiNlNDAwMmIiLz48cGF0aCBkPSJNMTY4My45OTc1LDQ3Ni43OTVjLTIuOTc3MS0xLjUxNjEtNS4zMDQ5LTMuNzQ4LTYuOTkxLTYuNjk1Ny0xLjY4NDEtMi45NDc3LTIuNTI1My02LjQ0MzItMi41MjUzLTEwLjQ4NTUsMC0zLjk4NjMuODQxMS03LjQ1MzMsMi41MjUzLTEwLjQwMSwxLjY4Ni0yLjk0NzcsNC4wMTM4LTUuMTkyOSw2Ljk5MS02LjczODQsMi45NzUyLTEuNTQzNiw2LjM0NTQtMi4zMTU1LDEwLjEwNjctMi4zMTU1czcuMTE2My43NzE4LDEwLjA2NSwyLjMxNTVjMi45NDY4LDEuNTQ1NSw1LjI2MzIsMy43OTA3LDYuOTQ3Myw2LjczODQsMS42ODYsMi45NDc3LDIuNTI3Miw2LjQxNDcsMi41MjcyLDEwLjQwMSwwLDQuMDQyMy0uODQxMSw3LjUzNzgtMi41MjcyLDEwLjQ4NTUtMS42ODQxLDIuOTQ3Ny00LjAwMDUsNS4xNzk2LTYuOTQ3Myw2LjY5NTctMi45NDg3LDEuNTE2MS02LjMwMzYsMi4yNzM3LTEwLjA2NSwyLjI3MzdzLTcuMTMxNS0uNzU3Ni0xMC4xMDY3LTIuMjczN1pNMTcwMi4wMjE3LDQ3My4yMTZjMi4zMDEyLTEuMTUwNiw0LjEyNTktMi44OTE3LDUuNDczOS01LjIyMjMsMS4zNDgxLTIuMzI4NywyLjAyMjEtNS4xMjI3LDIuMDIyMS04LjM3OTksMC0zLjI1NTMtLjY3NC02LjAzNS0yLjAyMjEtOC4zMzgxLTEuMzQ4MS0yLjMwMTItMy4xNzI3LTQuMDQyMy01LjQ3MzktNS4yMjE0LTIuMzAzMS0xLjE3OTEtNC45NDIzLTEuNzY4Ni03LjkxNzUtMS43Njg2LTIuOTc3MSwwLTUuNjI5Ni41ODk1LTcuOTU5MywxLjc2ODYtMi4zMjk3LDEuMTc5MS00LjE2NzYsMi45MjAyLTUuNTE1Nyw1LjIyMTQtMS4zNDgxLDIuMzAzMS0yLjAyMjEsNS4wODI4LTIuMDIyMSw4LjMzODEsMCwzLjMxMzIuNjc0LDYuMTIwNCwyLjAyMjEsOC40MjI2LDEuMzQ4MSwyLjMwMjIsMy4xODYsNC4wMjksNS41MTU3LDUuMTc5NiwyLjMyOTcsMS4xNTE2LDQuOTgyMiwxLjcyNTksNy45NTkzLDEuNzI1OSwyLjk3NTIsMCw1LjYxNDQtLjU3NDQsNy45MTc1LTEuNzI1OVpNMTY4Ni41MjQ2LDQ0Ny43Mzg0aDMuMTk5M3YyMy4yNDU2aC0zLjE5OTN2LTIzLjI0NTZaTTE2OTQuNjk0Nyw0NjEuODg3NWgtNy4wNzQ1di0zLjIwMDJoNy40OTQxYzEuNjg2LDAsMi44OTE3LS4yODAxLDMuNjIyNy0uODQyMS43MjkxLS41NjExLDEuMDkzNi0xLjUxNjEsMS4wOTM2LTIuODYzMiwwLTEuNTcxMi0uMzY0NS0yLjY2NjctMS4wOTM2LTMuMjg0Ny0uNzMxLS42MTcxLTEuODgxNi0uOTI2Ni0zLjQ1MzctLjkyNjZoLTcuNjYzMXYtMy4wMzIyaDguMjUzNmMyLjM1ODIsMCw0LjEyNTkuNjAzOCw1LjMwNDksMS44MTA0LDEuMTc5MSwxLjIwODUsMS43Njk2LDIuOTM1NCwxLjc2OTYsNS4xODA2LDAsMS44NTIyLS41MjAyLDMuMzU1LTEuNTU4OCw0LjUwNTYtMS4wMzg2LDEuMTUxNi0yLjM5OTksMS43ODI5LTQuMDg0MSwxLjg5NDlsLjMzNjEtLjU4OTUsNi4zMTY5LDEwLjQ0MzdoLTMuNzA2MmwtNS41NTc1LTkuMDk2NloiIGZpbGw9IiNlNDAwMmIiLz48L3N2Zz4=" alt="APPUESTA">
       <div class="logo-sub">Player Intelligence & Churn Prevention</div>
     </div>
   </div>
   <div class="header-right">
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
     <div class="storage-indicator empty" id="storageIndicator">💾 No history</div>
     <div class="snapshot-badge" id="snapshotBadge">No data loaded</div>
   </div>
@@ -947,6 +975,39 @@ body {
 </div>
 
 <script>
+// ================================================================
+//  THEME MANAGEMENT
+// ================================================================
+function getTheme() { return localStorage.getItem('appuesta_theme') || 'dark'; }
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+  // Update Chart.js defaults for current theme
+  const style = getComputedStyle(document.documentElement);
+  if (window.Chart) {
+    Chart.defaults.color = style.getPropertyValue('--chart-text').trim();
+    Chart.defaults.borderColor = style.getPropertyValue('--chart-grid').trim();
+  }
+  // Re-render charts if data is loaded
+  if (allPlayers.length > 0) {
+    const activeTab = document.querySelector('.tab.active');
+    if (activeTab) {
+      const tab = activeTab.getAttribute('data-tab');
+      if (tab === 'dashboard') renderDashboard();
+      if (tab === 'insights') renderInsights();
+    }
+  }
+}
+function toggleTheme() {
+  const cur = getTheme();
+  const next = cur === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('appuesta_theme', next);
+  applyTheme(next);
+}
+// Apply on load
+document.addEventListener('DOMContentLoaded', () => applyTheme(getTheme()));
+
 // ================================================================
 //  GLOBAL STATE
 // ================================================================
@@ -1490,23 +1551,14 @@ function computeMigrations() {
   migrations = [];
   if (Object.keys(previousPlayers).length === 0) return;
 
+  // Quality ranking: higher = better. Used only for migration direction.
+  const QUALITY = { churned: 0, atrisk: 1, cooling: 2, registered: 3, new: 4, active: 5, vip: 6 };
+
   allPlayers.forEach(p => {
     if (!p.prevSegment || p.prevSegment === p.segment) return;
-    const prevRank = SEGMENT_ORDER[p.prevSegment] ?? 99;
-    const currRank = SEGMENT_ORDER[p.segment] ?? 99;
-    let direction;
-    // Lower rank for active/vip is better; higher for cooling/atrisk/churned is worse
-    if (p.segment === 'churned' || p.segment === 'atrisk' || p.segment === 'cooling') {
-      direction = (currRank > prevRank) ? 'degraded' : 'improved';
-    } else {
-      direction = (currRank < prevRank || (currRank <= 3 && prevRank > 3)) ? 'improved' : 'degraded';
-    }
-    // Special case: registered → new or active = improved
-    if (p.prevSegment === 'registered' && p.segment !== 'registered') direction = 'improved';
-    // churned → anything else = improved
-    if (p.prevSegment === 'churned' && p.segment !== 'churned') direction = 'improved';
-    // active → cooling/atrisk/churned = degraded
-    if (['active','vip','new'].includes(p.prevSegment) && ['cooling','atrisk','churned'].includes(p.segment)) direction = 'degraded';
+    const prevQ = QUALITY[p.prevSegment] ?? 3;
+    const currQ = QUALITY[p.segment] ?? 3;
+    const direction = currQ >= prevQ ? 'improved' : 'degraded';
 
     migrations.push({ id:p.id, username:p.username, name:p.name, email:p.email, from:p.prevSegment, to:p.segment, direction, totalNGR:p.totalNGR });
   });
@@ -1666,7 +1718,8 @@ function renderMigrations() {
 
   let h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">';
   Object.values(flows).sort((a,b)=>b.count-a.count).forEach(f => {
-    const isDegraded = SEGMENT_ORDER[f.to] > SEGMENT_ORDER[f.from] && !['registered'].includes(f.from);
+    const QUALITY = { churned: 0, atrisk: 1, cooling: 2, registered: 3, new: 4, active: 5, vip: 6 };
+    const isDegraded = (QUALITY[f.to] ?? 3) < (QUALITY[f.from] ?? 3);
     const color = isDegraded ? 'var(--segment-atrisk)' : 'var(--green)';
     h += `<div class="migration-item" style="background:var(--bg-surface);border-radius:8px;padding:12px;">
       <span class="migration-count" style="color:${color};">${f.count}</span>
@@ -1778,16 +1831,16 @@ function renderInsights() {
   const profitPct = (profitableCount / dep.length * 100);
   const avgDep = dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length;
 
-  // Current Retention: of players active last month, what % have activity THIS month?
-  // LM Retention: of players active 2 months ago, what % had activity last month?
+  // Retention uses lastDepositDate (financial health view — who's putting money in)
+  // Dashboard segments still use lastActivityDate (operational view)
   const now = new Date();
-  const curYear = now.getFullYear(), curMonth = now.getMonth(); // March = 2
+  const curYear = now.getFullYear(), curMonth = now.getMonth();
   const lastMonth = curMonth === 0 ? 11 : curMonth - 1;
   const lastMonthYear = curMonth === 0 ? curYear - 1 : curYear;
   const twoMonthsAgo = lastMonth === 0 ? 11 : lastMonth - 1;
   const twoMonthsYear = lastMonth === 0 ? lastMonthYear - 1 : lastMonthYear;
 
-  const hasDates = dep.some(p => p.lastActivityDate);
+  const hasDates = dep.some(p => p.lastDepositDate);
   let currentRetPct = 0, currentRetCount = 0, lastMonthPool = 0;
   let lmRetPct = 0, lmRetCount = 0, twoMonthPool = 0;
 
@@ -1796,31 +1849,34 @@ function renderInsights() {
     const lastMonthStart = new Date(lastMonthYear, lastMonth, 1);
     const twoMonthStart = new Date(twoMonthsYear, twoMonthsAgo, 1);
 
-    // Current Retention: Of players active in last month (Feb), what % have activity in current month (Mar)?
-    // "Active in Feb" = firstActivity < Mar 1 AND lastActivity >= Feb 1
-    // This matches the monthly cohort logic exactly
+    // Current Retention: Of depositors in last month (Feb), what % deposited in current month (Mar)?
+    // Feb pool = lastDepositDate >= Feb 1, AND firstDepositDate < Mar 1 (exclude brand new Mar)
     const febPool = dep.filter(p => {
-      if (!p.lastActivityDate) return false;
-      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
-      if (!first) return false;
-      return first < curMonthStart && p.lastActivityDate >= lastMonthStart;
+      if (!p.lastDepositDate) return false;
+      if (p.lastDepositDate < lastMonthStart) return false;
+      const first = p.firstDepositDate || p.registeredAt;
+      if (first && first >= curMonthStart) return false;
+      return true;
     });
-    const retainedIntoCurrent = febPool.filter(p => p.lastActivityDate >= curMonthStart);
+    const retainedIntoCurrent = febPool.filter(p => p.lastDepositDate >= curMonthStart);
     lastMonthPool = febPool.length;
     currentRetCount = retainedIntoCurrent.length;
     currentRetPct = lastMonthPool > 0 ? (currentRetCount / lastMonthPool * 100) : 0;
+    console.log('[Current Retention] Feb depositors:', lastMonthPool, '| Deposited in Mar:', currentRetCount, '| %:', currentRetPct.toFixed(1));
 
-    // LM Retention: Of players active 2 months ago (Jan), what % had activity last month (Feb)?
+    // LM Retention: Of depositors 2 months ago (Jan), what % deposited last month (Feb)?
     const janPool = dep.filter(p => {
-      if (!p.lastActivityDate) return false;
-      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
-      if (!first) return false;
-      return first < lastMonthStart && p.lastActivityDate >= twoMonthStart;
+      if (!p.lastDepositDate) return false;
+      if (p.lastDepositDate < twoMonthStart) return false;
+      const first = p.firstDepositDate || p.registeredAt;
+      if (first && first >= lastMonthStart) return false;
+      return true;
     });
-    const retainedIntoLast = janPool.filter(p => p.lastActivityDate >= lastMonthStart);
+    const retainedIntoLast = janPool.filter(p => p.lastDepositDate >= lastMonthStart);
     twoMonthPool = janPool.length;
     lmRetCount = retainedIntoLast.length;
     lmRetPct = twoMonthPool > 0 ? (lmRetCount / twoMonthPool * 100) : 0;
+    console.log('[LM Retention] Jan depositors:', twoMonthPool, '| Deposited in Feb:', lmRetCount, '| %:', lmRetPct.toFixed(1));
   }
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1854,58 +1910,79 @@ function renderTimeToProfitability(dep) {
 
   const withFDD = dep.filter(p => p.firstDepositDate);
   const THRESHOLD = 50;
+
+  // Profitable = GGR >= $50 (house made at least $50 from this player)
+  const profitable = withFDD.filter(p => p.totalNGR >= THRESHOLD);
+  const unprofitable = withFDD.filter(p => p.totalNGR < THRESHOLD);
+  const profitRate = (profitable.length / withFDD.length * 100);
+
+  // Avg GGR for profitable vs unprofitable
+  const avgGGRProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.totalNGR, 0) / profitable.length : 0;
+  const avgGGRUnprofit = unprofitable.length > 0 ? unprofitable.reduce((s,p) => s+p.totalNGR, 0) / unprofitable.length : 0;
+
+  // Median LIFESPAN of profitable players (first deposit → last activity, NOT days since first deposit to today)
+  // This answers: "How long does a profitable player typically stay active?"
+  const profitableWithDates = profitable.filter(p => p.lastActivityDate && p.firstDepositDate);
+  const profLifespans = profitableWithDates.map(p => Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000)));
+  const medLifespanProfit = profLifespans.length > 0 ? getMedian(profLifespans) : 0;
+
+  // Avg deposits of profitable players (how many deposits does it take?)
+  const avgDepsProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.depositCount, 0) / profitable.length : 0;
+  const medDepsProfit = profitable.length > 0 ? getMedian(profitable.map(p => p.depositCount)) : 0;
+
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${withFDD.length} depositors</div></div>
+    <div class="insight-kpi"><div class="label">Median Deposits to Profit</div><div class="value">${medDepsProfit.toFixed(0)}</div><div class="sub">Avg: ${avgDepsProfit.toFixed(1)} deposits</div></div>
+    <div class="insight-kpi"><div class="label">Avg GGR (Profitable)</div><div class="value" style="color:var(--green);">$${fmt(avgGGRProfit)}</div><div class="sub">vs $${fmt(avgGGRUnprofit)} unprofitable</div></div>
+    <div class="insight-kpi"><div class="label">Median Lifespan (Profitable)</div><div class="value">${medLifespanProfit}d</div><div class="sub">First deposit → last activity</div></div>
+  </div>`;
+
+  // Chart 1: Profitability RATE by tenure bucket (% of each bucket that is profitable)
   const buckets = [
     { label: '0-3 days', min: 0, max: 3 },
     { label: '4-7 days', min: 4, max: 7 },
     { label: '8-14 days', min: 8, max: 14 },
     { label: '15-21 days', min: 15, max: 21 },
     { label: '22-30 days', min: 22, max: 30 },
-    { label: '31+ days', min: 31, max: 99999 }
+    { label: '31-60 days', min: 31, max: 60 },
+    { label: '61+ days', min: 61, max: 99999 }
   ];
 
+  // Tenure = lifespan (first deposit → last activity), not age
   const data = buckets.map(b => {
     const inBucket = withFDD.filter(p => {
-      const tenure = p.daysSinceFirstDeposit || 0;
-      return tenure >= b.min && tenure <= b.max;
+      if (!p.lastActivityDate) return false;
+      const lifespan = Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+      return lifespan >= b.min && lifespan <= b.max;
     });
-    const profitable = inBucket.filter(p => p.totalNGR >= THRESHOLD).length;
-    const unprofitable = inBucket.length - profitable;
-    return { label: b.label, profitable, unprofitable, total: inBucket.length };
+    const prof = inBucket.filter(p => p.totalNGR >= THRESHOLD).length;
+    const rate = inBucket.length > 0 ? (prof / inBucket.length * 100) : 0;
+    return { label: b.label, profitable: prof, unprofitable: inBucket.length - prof, total: inBucket.length, rate };
   });
 
-  const profitable = withFDD.filter(p => p.totalNGR >= THRESHOLD);
-  const quickProfit = profitable.filter(p => (p.daysSinceFirstDeposit || 0) <= 7).length;
-  const profitRate = (profitable.length / withFDD.length * 100);
-  const avgGGRProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.totalNGR, 0) / profitable.length : 0;
-  const avgGGRUnprofit = (withFDD.length - profitable.length) > 0 ? withFDD.filter(p => p.totalNGR < THRESHOLD).reduce((s,p) => s+p.totalNGR, 0) / (withFDD.length - profitable.length) : 0;
-  const medTenureProfit = profitable.length > 0 ? getMedian(profitable.map(p => p.daysSinceFirstDeposit || 0)) : 0;
-
-  container.innerHTML = `<div class="insight-kpi-row">
-    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${withFDD.length} depositors</div></div>
-    <div class="insight-kpi"><div class="label">Quick Profit (≤7d)</div><div class="value">${quickProfit}</div><div class="sub">Profitable within first week</div></div>
-    <div class="insight-kpi"><div class="label">Avg GGR (Profitable)</div><div class="value" style="color:var(--green);">$${fmt(avgGGRProfit)}</div><div class="sub">vs $${fmt(avgGGRUnprofit)} unprofitable</div></div>
-    <div class="insight-kpi"><div class="label">Median Tenure (Profitable)</div><div class="value">${medTenureProfit.toFixed(0)}d</div><div class="sub">Days since first deposit</div></div>
-  </div>`;
-
-  // Stacked bar: profitable vs unprofitable by tenure
   if (charts.profitTiming) charts.profitTiming.destroy();
   charts.profitTiming = new Chart(document.getElementById('profitTimingChart'), {
-    type: 'bar', data: { labels: data.map(d => d.label), datasets: [
+    type: 'bar', data: { labels: data.map(d => d.label + ' (' + d.total + ')'), datasets: [
       { label: 'Profitable (≥$50)', data: data.map(d => d.profitable), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4 },
       { label: 'Unprofitable (<$50)', data: data.map(d => d.unprofitable), backgroundColor: 'rgba(158,158,158,0.5)', borderRadius: 4 }
-    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Profitable vs Unprofitable by Tenure', color: '#8a8d91' } },
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Profitable vs Unprofitable by Lifespan (first deposit → last activity)', color: '#8a8d91' } },
       scales: { x: { stacked: true, ticks: { color: '#8a8d91' }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } } } }
   });
 
-  // Avg GGR by tenure bucket
+  // Chart 2: Avg GGR by lifespan bucket
   const ggrBuckets = [
     { label: '0-7d', min: 0, max: 7 },
     { label: '8-14d', min: 8, max: 14 },
     { label: '15-30d', min: 15, max: 30 },
-    { label: '31+d', min: 31, max: 99999 }
+    { label: '31-60d', min: 31, max: 60 },
+    { label: '61+d', min: 61, max: 99999 }
   ];
   const ggrData = ggrBuckets.map(b => {
-    const inB = withFDD.filter(p => (p.daysSinceFirstDeposit||0) >= b.min && (p.daysSinceFirstDeposit||0) <= b.max);
+    const inB = withFDD.filter(p => {
+      if (!p.lastActivityDate) return false;
+      const lifespan = Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+      return lifespan >= b.min && lifespan <= b.max;
+    });
     return inB.length > 0 ? inB.reduce((s,p) => s+p.totalNGR, 0) / inB.length : 0;
   });
 
@@ -1914,7 +1991,7 @@ function renderTimeToProfitability(dep) {
     type: 'bar', data: { labels: ggrBuckets.map(b => b.label), datasets: [{
       label: 'Avg GGR', data: ggrData,
       backgroundColor: ggrData.map(v => v >= 50 ? 'rgba(0,200,83,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6
-    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Avg GGR by Tenure Bucket', color: '#8a8d91' } },
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Avg GGR by Player Lifespan', color: '#8a8d91' } },
       scales: { y: { ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 }
@@ -1985,25 +2062,22 @@ function renderChurnTiming(dep) {
   });
 }
 
-// ---- VIEW 3: Monthly Cohort (ALL depositors per month) ----
+// ---- VIEW 3: Monthly Cohort (depositors per month) ----
 function renderMonthlyCohort(dep) {
   const container = document.getElementById('cohortTable');
-  const hasDates = dep.some(p => p.lastActivityDate);
+  const hasDates = dep.some(p => p.lastDepositDate);
 
   if (!hasDates) {
     container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available. Upload fresh CSVs to see Monthly Cohort data.</div>';
     return;
   }
 
-  // Build month-level activity: a player is "active in month X" if lastActivityDate >= start of X
-  // Since we only have lastActivityDate, a player active in month X means lastActivityDate >= X start
-  // They are "still active in month X+1" if lastActivityDate >= X+1 start
+  // Deposit-based retention: "depositor in month X" = lastDepositDate >= X start AND firstDepositDate < X+1 start
   const now = new Date();
   const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Find all months where we have data: from earliest firstDepositDate to current
-  const allDates = dep.map(p => p.lastActivityDate).filter(Boolean);
-  if (allDates.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No activity date data.</p>'; return; }
+  const allDates = dep.map(p => p.lastDepositDate).filter(Boolean);
+  if (allDates.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">No deposit date data.</p>'; return; }
 
   const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
   const months = [];
@@ -2013,31 +2087,25 @@ function renderMonthlyCohort(dep) {
     d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
   }
 
-  // For each month, find players whose lastActivityDate >= that month's start
-  // This means they were active at least up to that month
-  // "Active in month X" = lastActivityDate is IN month X or later
-  // More precisely: lastActivityDate falls within month X = last activity was in that month
-  // OR lastActivityDate > month X = they were active beyond that month too
-  // A player's active months = from firstActivity month through lastActivity month
+  // "Depositor in month X" = had a deposit date spanning into month X
+  // firstDepositDate < end of X AND lastDepositDate >= start of X
   const monthData = months.map(m => {
     const mStart = new Date(m.year, m.month, 1);
     const mEnd = new Date(m.year, m.month + 1, 1);
     const nextMStart = mEnd;
-    const nextMEnd = new Date(m.year, m.month + 2, 1);
 
-    // Players active in this month: firstActivity <= end of month AND lastActivity >= start of month
     const activePlayers = dep.filter(p => {
-      if (!p.lastActivityDate) return false;
-      const first = p.firstActivityDate || p.firstDepositDate || p.registeredAt;
+      if (!p.lastDepositDate) return false;
+      const first = p.firstDepositDate || p.registeredAt;
       if (!first) return false;
-      return first < mEnd && p.lastActivityDate >= mStart;
+      return first < mEnd && p.lastDepositDate >= mStart;
     });
 
-    // Of those, how many were also active next month?
-    const retainedNextMonth = activePlayers.filter(p => p.lastActivityDate >= nextMStart);
+    // Retained next month = deposited again in next month (lastDepositDate >= next month start)
+    const retainedNextMonth = activePlayers.filter(p => p.lastDepositDate >= nextMStart);
     
-    // Of those, how many are still active to date (current month)?
-    const stillActiveToDate = activePlayers.filter(p => p.lastActivityDate >= curMonthStart);
+    // Still depositing today = lastDepositDate in current month
+    const stillActiveToDate = activePlayers.filter(p => p.lastDepositDate >= curMonthStart);
 
     const t = activePlayers.length;
     const avgG = t > 0 ? activePlayers.reduce((s,p) => s+p.totalNGR, 0) / t : 0;
@@ -2053,7 +2121,7 @@ function renderMonthlyCohort(dep) {
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Active Players</th><th>Avg GGR</th><th>Avg Deposits</th><th>% Retained Next Mo</th><th>% Still Active Today</th></tr></thead><tbody>';
+  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Depositors</th><th>Avg GGR</th><th>Avg Deposits</th><th>% Deposited Next Mo</th><th>% Still Depositing Today</th></tr></thead><tbody>';
   monthData.forEach(m => {
     const label = monthNames[m.month] + ' ' + m.year;
     const nextCol = m.isCurrent ? '<td style="color:var(--text-muted);">—</td>' :
@@ -2063,7 +2131,7 @@ function renderMonthlyCohort(dep) {
     th += `<tr><td style="font-weight:600;">${label}</td><td>${m.total}</td><td>$${fmt(m.avgGGR)}</td><td>$${fmt(m.avgDep)}</td>${nextCol}${todayCol}</tr>`;
   });
   th += '</tbody></table>';
-  th += '<p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Active = had activity (deposit/bet) during that month. Next Mo = % who also had activity the following month. Today = % with activity in current month ('+monthNames[now.getMonth()]+').</p>';
+  th += '<p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Depositor = made a deposit during that month (deposit-based retention). Next Mo = % who also deposited the following month. Today = % with a deposit in current month ('+monthNames[now.getMonth()]+').</p>';
   container.innerHTML = th;
 
   // Chart: Retention curve — next month vs to-date by month
@@ -2072,10 +2140,10 @@ function renderMonthlyCohort(dep) {
   charts.cohortValue = new Chart(document.getElementById('cohortValueChart'), {
     type: 'bar', data: { labels: chartMonths.map(m => monthNames[m.month] + ' ' + String(m.year).slice(2)),
     datasets: [
-      { label: '% Retained Next Month', data: chartMonths.map(m => m.nextMonthPct), backgroundColor: 'rgba(41,121,255,0.7)', borderRadius: 4, yAxisID: 'y' },
-      { label: '% Still Active Today', data: chartMonths.map(m => m.toDatePct), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4, yAxisID: 'y' },
-      { label: 'Active Players', data: chartMonths.map(m => m.total), type: 'line', borderColor: '#ffc107', pointBackgroundColor: '#ffc107', yAxisID: 'y1', tension: 0.3 }
-    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Monthly Retention — Next Month vs Still Active Today', color: '#8a8d91' } },
+      { label: '% Deposited Next Month', data: chartMonths.map(m => m.nextMonthPct), backgroundColor: 'rgba(41,121,255,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { label: '% Still Depositing Today', data: chartMonths.map(m => m.toDatePct), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { label: 'Depositors', data: chartMonths.map(m => m.total), type: 'line', borderColor: '#ffc107', pointBackgroundColor: '#ffc107', yAxisID: 'y1', tension: 0.3 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Monthly Deposit Retention — Next Month vs Still Depositing Today', color: '#8a8d91' } },
       scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Retention %', color: '#8a8d91' } },
         y1: { position: 'right', ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Players', color: '#8a8d91' } },
         x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
@@ -2087,7 +2155,7 @@ function renderBehavioralSignals(dep) {
   const container = document.getElementById('signalsSummary');
   const now = new Date();
   const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const hasDates = dep.some(p => p.lastActivityDate && p.firstActivityDate);
+  const hasDates = dep.some(p => p.lastDepositDate);
   
   const depBuckets = [
     { label: '1 deposit', min: 1, max: 1 },
@@ -2097,8 +2165,8 @@ function renderBehavioralSignals(dep) {
     { label: '11+ deposits', min: 11, max: 99999 }
   ];
 
-  // "Currently active" = lastActivityDate in current month
-  const isCurrentlyActive = p => p.lastActivityDate && p.lastActivityDate >= curMonthStart;
+  // "Currently depositing" = lastDepositDate in current month
+  const isCurrentlyActive = p => p.lastDepositDate && p.lastDepositDate >= curMonthStart;
   // Fallback if no dates: use segment
   const isRetained = hasDates ? isCurrentlyActive : (p => ['active','vip','new'].includes(p.segment));
 
@@ -2141,11 +2209,11 @@ function renderBehavioralSignals(dep) {
   if (charts.signals) charts.signals.destroy();
   charts.signals = new Chart(document.getElementById('signalsChart'), {
     type: 'bar', data: { labels: bucketData.map(b => b.label), datasets: [
-      { label: 'Current Retention %', data: bucketData.map(b => b.rate),
+      { label: 'Deposit Retention %', data: bucketData.map(b => b.rate),
         backgroundColor: bucketData.map(b => b.rate >= 50 ? 'rgba(0,200,83,0.7)' : b.rate >= 25 ? 'rgba(255,193,7,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 6, yAxisID: 'y' },
       ...(hasDates ? [{ label: 'Avg Lifespan (months)', data: bucketData.map(b => b.avgLifespanMonths),
         type: 'line', borderColor: '#2979ff', pointBackgroundColor: '#2979ff', yAxisID: 'y1', tension: 0.3, pointRadius: 5 }] : [])
-    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Retention & Lifespan by Deposit Count', color: '#8a8d91' } },
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Deposit Retention & Lifespan by Deposit Count', color: '#8a8d91' } },
       scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Retention %', color: '#8a8d91' } },
         y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => v.toFixed(1)+'mo' }, grid: { display: false }, title: { display: true, text: 'Avg Lifespan', color: '#8a8d91' } },
         x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
