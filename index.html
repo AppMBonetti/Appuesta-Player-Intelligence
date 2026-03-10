@@ -880,7 +880,7 @@ body {
 
     <!-- View: Time to Profitability -->
     <div class="insight-view" id="view-profitability">
-      <div class="chart-card full-width"><h3>Time to Profitability (GGR ≥ $50)</h3>
+      <div class="chart-card full-width"><h3>Profitability Gap Analysis (GGR ≥ $50)</h3>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How long from first deposit until a player generates ≥$50 GGR. Profitable defined as GGR ≥ $50 to account for acquisition cost.</p>
         <div id="profitSummary" style="margin-bottom:16px;"></div>
         <div class="charts-grid">
@@ -1899,74 +1899,96 @@ function renderInsights() {
   renderRevenueConcentration(dep, totalNGR);
 }
 
-// ---- VIEW 1: Time to Profitability ----
+// ---- VIEW 1: Time to Profitability (Profitability Gap Analysis) ----
 function renderTimeToProfitability(dep) {
   const container = document.getElementById('profitSummary');
-  const hasFDD = dep.some(p => p.firstDepositDate);
+  const hasFDD = dep.some(p => p.firstDepositDate && p.lastActivityDate);
   if (!hasFDD) {
-    container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available (restored from old snapshot). Upload fresh CSVs to see Time to Profitability.</div>';
+    container.innerHTML = '<div class="insight-notice">⚠️ Date fields not available (restored from old snapshot). Upload fresh CSVs to see Profitability Gap.</div>';
     return;
   }
 
-  const withFDD = dep.filter(p => p.firstDepositDate);
+  const withDates = dep.filter(p => p.firstDepositDate && p.lastActivityDate);
   const THRESHOLD = 50;
 
-  // Profitable = GGR >= $50 (house made at least $50 from this player)
-  const profitable = withFDD.filter(p => p.totalNGR >= THRESHOLD);
-  const unprofitable = withFDD.filter(p => p.totalNGR < THRESHOLD);
-  const profitRate = (profitable.length / withFDD.length * 100);
+  // Compute lifespan for every player (first deposit → last activity)
+  const allLifespans = withDates.map(p => ({
+    ...p,
+    lifespan: Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000))
+  }));
 
-  // Avg GGR for profitable vs unprofitable
+  // Profitable players
+  const profitable = allLifespans.filter(p => p.totalNGR >= THRESHOLD);
+  const unprofitable = allLifespans.filter(p => p.totalNGR < THRESHOLD);
+  const profitRate = (profitable.length / allLifespans.length * 100);
   const avgGGRProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.totalNGR, 0) / profitable.length : 0;
   const avgGGRUnprofit = unprofitable.length > 0 ? unprofitable.reduce((s,p) => s+p.totalNGR, 0) / unprofitable.length : 0;
 
-  // Median LIFESPAN of profitable players (first deposit → last activity, NOT days since first deposit to today)
-  // This answers: "How long does a profitable player typically stay active?"
-  const profitableWithDates = profitable.filter(p => p.lastActivityDate && p.firstDepositDate);
-  const profLifespans = profitableWithDates.map(p => Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000)));
-  const medLifespanProfit = profLifespans.length > 0 ? getMedian(profLifespans) : 0;
+  // Median lifespan of profitable vs ALL players
+  const medLifespanProfit = profitable.length > 0 ? getMedian(profitable.map(p => p.lifespan)) : 0;
+  const medLifespanAll = getMedian(allLifespans.map(p => p.lifespan));
 
-  // Avg deposits of profitable players (how many deposits does it take?)
-  const avgDepsProfit = profitable.length > 0 ? profitable.reduce((s,p) => s+p.depositCount, 0) / profitable.length : 0;
-  const medDepsProfit = profitable.length > 0 ? getMedian(profitable.map(p => p.depositCount)) : 0;
+  // The gap: how many more days does a profitable player live vs typical player?
+  const gap = medLifespanProfit - medLifespanAll;
+  const gapColor = gap > 0 ? 'var(--red)' : 'var(--green)';
 
-  container.innerHTML = `<div class="insight-kpi-row">
-    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${withFDD.length} depositors</div></div>
-    <div class="insight-kpi"><div class="label">Median Deposits to Profit</div><div class="value">${medDepsProfit.toFixed(0)}</div><div class="sub">Avg: ${avgDepsProfit.toFixed(1)} deposits</div></div>
-    <div class="insight-kpi"><div class="label">Avg GGR (Profitable)</div><div class="value" style="color:var(--green);">$${fmt(avgGGRProfit)}</div><div class="sub">vs $${fmt(avgGGRUnprofit)} unprofitable</div></div>
-    <div class="insight-kpi"><div class="label">Median Lifespan (Profitable)</div><div class="value">${medLifespanProfit}d</div><div class="sub">First deposit → last activity</div></div>
+  // % of players whose lifespan >= median profitable lifespan (i.e., live long enough)
+  const reachProfitWindow = allLifespans.filter(p => p.lifespan >= medLifespanProfit).length;
+  const reachPct = (reachProfitWindow / allLifespans.length * 100);
+
+  // Same-day and first-week churn (all players, not just inactive segment)
+  const sameDayCount = allLifespans.filter(p => p.lifespan === 0).length;
+  const sameDayPct = (sameDayCount / allLifespans.length * 100);
+  const firstWeekCount = allLifespans.filter(p => p.lifespan <= 7).length;
+  const firstWeekPct = (firstWeekCount / allLifespans.length * 100);
+
+  container.innerHTML = `<div class="insight-kpi-row" style="grid-template-columns:repeat(3,1fr);">
+    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${allLifespans.length} | Avg GGR $${fmt(avgGGRProfit)}</div></div>
+    <div class="insight-kpi"><div class="label">Median Lifespan (Profitable)</div><div class="value" style="color:var(--green);">${medLifespanProfit}d</div><div class="sub">Days needed to reach ≥$50 GGR</div></div>
+    <div class="insight-kpi"><div class="label">Median Lifespan (All Players)</div><div class="value">${medLifespanAll}d</div><div class="sub">Typical player survives this long</div></div>
+  </div>
+  <div class="insight-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+    <div class="insight-kpi"><div class="label">Profitability Gap</div><div class="value" style="color:${gapColor};">${gap > 0 ? '+' : ''}${gap}d</div><div class="sub">${gap > 0 ? 'Players churn before becoming profitable' : 'Players live past profitability point'}</div></div>
+    <div class="insight-kpi"><div class="label">Reach Profit Window</div><div class="value" style="color:${reachPct>=50?'var(--green)':reachPct>=25?'#ffc107':'var(--red)'};">${reachPct.toFixed(0)}%</div><div class="sub">${reachProfitWindow} players survive ≥${medLifespanProfit}d</div></div>
+    <div class="insight-kpi"><div class="label">Early Churn</div><div class="value" style="color:var(--red);">${sameDayPct.toFixed(0)}% / ${firstWeekPct.toFixed(0)}%</div><div class="sub">Same-day (${sameDayCount}) / First week (${firstWeekCount})</div></div>
   </div>`;
 
-  // Chart 1: Profitability RATE by tenure bucket (% of each bucket that is profitable)
-  const buckets = [
-    { label: '0-3 days', min: 0, max: 3 },
-    { label: '4-7 days', min: 4, max: 7 },
-    { label: '8-14 days', min: 8, max: 14 },
-    { label: '15-21 days', min: 15, max: 21 },
-    { label: '22-30 days', min: 22, max: 30 },
-    { label: '31-60 days', min: 31, max: 60 },
-    { label: '61+ days', min: 61, max: 99999 }
-  ];
+  // Chart 1: Crossover — cumulative % churned vs cumulative % profitable by day X
+  // Build day-by-day cumulative curves up to day 90
+  const maxDay = 90;
+  const dayLabels = [];
+  const cumChurnPct = [];
+  const cumProfitPct = [];
+  const totalPlayers = allLifespans.length;
+  const totalProfitable = profitable.length;
 
-  // Tenure = lifespan (first deposit → last activity), not age
-  const data = buckets.map(b => {
-    const inBucket = withFDD.filter(p => {
-      if (!p.lastActivityDate) return false;
-      const lifespan = Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
-      return lifespan >= b.min && lifespan <= b.max;
-    });
-    const prof = inBucket.filter(p => p.totalNGR >= THRESHOLD).length;
-    const rate = inBucket.length > 0 ? (prof / inBucket.length * 100) : 0;
-    return { label: b.label, profitable: prof, unprofitable: inBucket.length - prof, total: inBucket.length, rate };
-  });
+  for (let d = 0; d <= maxDay; d++) {
+    dayLabels.push(d);
+    // % of ALL players whose lifespan <= d (they've stopped by day d)
+    const churnedByD = allLifespans.filter(p => p.lifespan <= d).length;
+    cumChurnPct.push((churnedByD / totalPlayers * 100));
+    // % of profitable players whose lifespan <= d (they hit profitability by day d)
+    // Actually: profitable players with lifespan >= d means they're still active
+    // We want: of profitable players, what % have lifespan <= d — they became profitable within d days
+    const profByD = profitable.filter(p => p.lifespan <= d).length;
+    cumProfitPct.push(totalProfitable > 0 ? (profByD / totalProfitable * 100) : 0);
+  }
 
   if (charts.profitTiming) charts.profitTiming.destroy();
   charts.profitTiming = new Chart(document.getElementById('profitTimingChart'), {
-    type: 'bar', data: { labels: data.map(d => d.label + ' (' + d.total + ')'), datasets: [
-      { label: 'Profitable (≥$50)', data: data.map(d => d.profitable), backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4 },
-      { label: 'Unprofitable (<$50)', data: data.map(d => d.unprofitable), backgroundColor: 'rgba(158,158,158,0.5)', borderRadius: 4 }
-    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Profitable vs Unprofitable by Lifespan (first deposit → last activity)', color: '#8a8d91' } },
-      scales: { x: { stacked: true, ticks: { color: '#8a8d91' }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } } } }
+    type: 'line', data: { labels: dayLabels.filter((_, i) => i % 5 === 0 || i <= 7),
+    datasets: [
+      { label: '% All Players Churned by Day', data: cumChurnPct.filter((_, i) => i % 5 === 0 || i <= 7),
+        borderColor: 'rgba(255,87,34,0.9)', backgroundColor: 'rgba(255,87,34,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+      { label: '% Profitable Players (lifespan ≤ day)', data: cumProfitPct.filter((_, i) => i % 5 === 0 || i <= 7),
+        borderColor: 'rgba(0,200,83,0.9)', backgroundColor: 'rgba(0,200,83,0.1)', fill: true, tension: 0.3, pointRadius: 0 }
+    ]}, options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8a8d91' } },
+        title: { display: true, text: 'Profitability Gap — Churn vs Profit Curves (by day since FTD)', color: '#8a8d91' },
+        annotation: medLifespanProfit > 0 ? undefined : undefined
+      },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100, title: { display: true, text: 'Cumulative %', color: '#8a8d91' } },
+        x: { ticks: { color: '#8a8d91' }, grid: { display: false }, title: { display: true, text: 'Days since first deposit', color: '#8a8d91' } } } }
   });
 
   // Chart 2: Avg GGR by lifespan bucket
@@ -1978,11 +2000,7 @@ function renderTimeToProfitability(dep) {
     { label: '61+d', min: 61, max: 99999 }
   ];
   const ggrData = ggrBuckets.map(b => {
-    const inB = withFDD.filter(p => {
-      if (!p.lastActivityDate) return false;
-      const lifespan = Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
-      return lifespan >= b.min && lifespan <= b.max;
-    });
+    const inB = allLifespans.filter(p => p.lifespan >= b.min && p.lifespan <= b.max);
     return inB.length > 0 ? inB.reduce((s,p) => s+p.totalNGR, 0) / inB.length : 0;
   });
 
@@ -2024,25 +2042,23 @@ function renderChurnTiming(dep) {
   ];
 
   const data = buckets.map(b => lifespans.filter(p => p.lifespan >= b.min && p.lifespan <= b.max).length);
-  const sameDayCount = data[0];
-  const firstWeekCount = data[0] + data[1] + data[2];
-  const firstWeekPct = (firstWeekCount / inactive.length * 100);
-  const medLifespan = getMedian(lifespans.map(p => p.lifespan));
+  // Show as percentages
+  const dataPct = data.map(d => (d / inactive.length * 100));
 
   container.innerHTML = `<div class="insight-kpi-row">
-    <div class="insight-kpi"><div class="label">Same-day Churn</div><div class="value" style="color:var(--red);">${sameDayCount}</div><div class="sub">Deposited, never returned</div></div>
-    <div class="insight-kpi"><div class="label">First Week Churn</div><div class="value" style="color:var(--red);">${firstWeekPct.toFixed(1)}%</div><div class="sub">${firstWeekCount} of ${inactive.length} churned</div></div>
-    <div class="insight-kpi"><div class="label">Median Lifespan</div><div class="value">${medLifespan.toFixed(0)}d</div><div class="sub">Of inactive players</div></div>
-    <div class="insight-kpi"><div class="label">Danger Window</div><div class="value" style="color:#ffc107;">Week 1</div><div class="sub">${firstWeekPct.toFixed(0)}% churn — highest ROI intervention</div></div>
+    <div class="insight-kpi"><div class="label">Inactive Players</div><div class="value">${inactive.length}</div><div class="sub">Cooling + At-Risk + Churned</div></div>
+    <div class="insight-kpi"><div class="label">Churned Day 0</div><div class="value" style="color:var(--red);">${dataPct[0].toFixed(0)}%</div><div class="sub">${data[0]} deposited, never returned</div></div>
+    <div class="insight-kpi"><div class="label">Churned ≤7 Days</div><div class="value" style="color:var(--red);">${((data[0]+data[1]+data[2])/inactive.length*100).toFixed(0)}%</div><div class="sub">${data[0]+data[1]+data[2]} lost within first week</div></div>
+    <div class="insight-kpi"><div class="label">Survived 30+ Days</div><div class="value" style="color:var(--green);">${dataPct[6].toFixed(0)}%</div><div class="sub">${data[6]} players had 31+ day lifespan</div></div>
   </div>`;
 
   if (charts.churnTiming) charts.churnTiming.destroy();
   charts.churnTiming = new Chart(document.getElementById('churnTimingChart'), {
-    type: 'bar', data: { labels: buckets.map(b => b.label), datasets: [{
-      label: 'Inactive Players', data: data,
-      backgroundColor: data.map((_, i) => i <= 2 ? 'rgba(255,87,34,0.7)' : 'rgba(255,152,0,0.5)'), borderRadius: 6
-    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Churn by Activity Lifespan', color: '#8a8d91' } },
-      scales: { y: { ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+    type: 'bar', data: { labels: buckets.map((b, i) => b.label + ' (' + data[i] + ')'), datasets: [{
+      label: '% of Inactive Players', data: dataPct,
+      backgroundColor: dataPct.map((_, i) => i <= 2 ? 'rgba(255,87,34,0.7)' : 'rgba(255,152,0,0.5)'), borderRadius: 6
+    }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Churn Distribution by Lifespan', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
   });
 
   // Lifespan by product type
