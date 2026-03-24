@@ -1166,7 +1166,7 @@ async function saveCurrentSnapshot() {
   const now = new Date();
   const label = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   
-  // Build player map for storage (slim version — only fields needed for delta calc)
+  // Build player map for storage (includes date fields for Insights)
   const playerMap = {};
   allPlayers.forEach(p => {
     playerMap[p.id] = {
@@ -1183,7 +1183,21 @@ async function saveCurrentSnapshot() {
       nm: p.name || '',
       em: p.email || '',
       pt: p.productType || '',
-      cur: p.currency || ''
+      cur: p.currency || '',
+      // Date fields (stored as ISO strings for JSON compat)
+      fdd: p.firstDepositDate ? p.firstDepositDate.toISOString() : null,
+      ldd: p.lastDepositDate ? p.lastDepositDate.toISOString() : null,
+      lad: p.lastActivityDate ? p.lastActivityDate.toISOString() : null,
+      fad: p.firstActivityDate ? p.firstActivityDate.toISOString() : null,
+      reg: p.registeredAt ? p.registeredAt.toISOString() : null,
+      lwd: p.lastWithdrawalDate ? p.lastWithdrawalDate.toISOString() : null,
+      slb: p.sportsLastBet ? p.sportsLastBet.toISOString() : null,
+      sfb: p.sportsFirstBet ? p.sportsFirstBet.toISOString() : null,
+      dsfd: p.daysSinceFirstDeposit,
+      tw: p.totalWithdrawals || 0,
+      cb: p.casinoBets || 0,
+      cw: p.casinoWins || 0,
+      st: p.sportsTurnover || 0
     };
   });
   
@@ -1403,6 +1417,7 @@ function loadSnapIntoUI(snap) {
   if (idx > 0) previousPlayers = allSnaps[idx-1].players || {};
   
   allPlayers = Object.entries(snap.players).map(([id, p]) => {
+    const parseD = s => s ? new Date(s) : null;
     return {
       id, username: p.un || p.username || '', name: p.nm || p.name || '', email: p.em || p.email || '',
       segment: 'registered', // Will be recalculated by segmentPlayers()
@@ -1411,14 +1426,17 @@ function loadSnapIntoUI(snap) {
       sportsGGR: p.sg || p.sportsGGR || 0, casinoGGR: p.cg || p.casinoGGR || 0,
       daysSinceActivity: p.da || p.daysSinceActivity || 9999, riskScore: 0,
       productType: p.pt || p.productType || '', currency: p.cur || p.currency || '',
-      registeredAt: null, lastActivityDate: null, firstActivityDate: null, lastDepositDate: null,
-      firstDepositDate: null, lastWithdrawalDate: null,
-      totalWithdrawals: 0, casinoBets: 0, casinoWins: 0,
-      sportsTurnover: 0, sportsAvgStake: 0, sportsActiveDays: 0, sportsLastBet: null,
-      sportsFirstBet: null, sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
+      // Restore date fields from snapshot (stored as ISO strings)
+      firstDepositDate: parseD(p.fdd), lastDepositDate: parseD(p.ldd),
+      lastActivityDate: parseD(p.lad), firstActivityDate: parseD(p.fad),
+      registeredAt: parseD(p.reg), lastWithdrawalDate: parseD(p.lwd),
+      sportsLastBet: parseD(p.slb), sportsFirstBet: parseD(p.sfb),
+      totalWithdrawals: p.tw || 0, casinoBets: p.cb || 0, casinoWins: p.cw || 0,
+      sportsTurnover: p.st || 0, sportsAvgStake: 0, sportsActiveDays: 0,
+      sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
       hasAnyActivity: (p.dc||p.depositCount||0) > 0 || (p.sb||p.sportsBets||0) > 0,
       hasDeposited: (p.dc||p.depositCount||0) > 0, hasSportsBets: (p.sb||p.sportsBets||0) > 0,
-      daysSinceFirstDeposit: 999, tenure: 0
+      daysSinceFirstDeposit: p.dsfd || 999, tenure: 0
     };
   });
   
