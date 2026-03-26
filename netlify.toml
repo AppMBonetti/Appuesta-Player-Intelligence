@@ -1,5 +1,6 @@
 [build]
   publish = "."
+  functions = "netlify/functions"
 
 # SPA routing — all paths serve index.html
 [[redirects]]
