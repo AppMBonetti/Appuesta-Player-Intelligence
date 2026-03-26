@@ -2769,7 +2769,7 @@ async function sendAiMessage() {
       playerStr = JSON.stringify(playerData.slice(0, 200)) + `\n... (showing 200 of ${playerData.length} players. Full dataset available.)`;
     }
     
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("/.netlify/functions/ai-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
