@@ -2742,6 +2742,8 @@ function buildPlayerSummaryForAI() {
     }));
 }
 
+let aiConversationHistory = [];
+
 async function sendAiMessage() {
   const input = document.getElementById('aiInput');
   const msg = input.value.trim();
@@ -2750,10 +2752,16 @@ async function sendAiMessage() {
   const messagesEl = document.getElementById('aiMessages');
   const sendBtn = document.getElementById('aiSendBtn');
   
-  // Add user message
+  // Add user message to UI
   messagesEl.innerHTML += `<div class="ai-msg user">${msg.replace(/</g,'&lt;')}</div>`;
   input.value = '';
   sendBtn.disabled = true;
+  
+  // Add to conversation history
+  aiConversationHistory.push({ role: "user", content: msg });
+  
+  // Keep last 10 exchanges to stay within token limits
+  if (aiConversationHistory.length > 20) aiConversationHistory = aiConversationHistory.slice(-20);
   
   // Show typing indicator
   messagesEl.innerHTML += `<div class="ai-typing" id="aiTyping"><span></span><span></span><span></span></div>`;
@@ -2798,8 +2806,9 @@ RULES:
 - Keep responses concise but data-rich
 - Format numbers nicely ($1,234 not 1234.00)
 - If you can't answer precisely, explain what data would be needed
-- When suggesting campaigns, estimate the target audience size from the actual data`,
-        messages: [{ role: "user", content: msg }]
+- When suggesting campaigns, estimate the target audience size from the actual data
+- You have FULL CONVERSATION MEMORY — refer back to previous answers when the user asks follow-up questions`,
+        messages: aiConversationHistory
       })
     });
     
@@ -2808,6 +2817,9 @@ RULES:
     if (typing) typing.remove();
     
     let reply = data.content?.map(c => c.text || '').join('\n') || 'Sorry, I couldn\'t process that. Try again.';
+    
+    // Save assistant reply to conversation history
+    aiConversationHistory.push({ role: "assistant", content: reply });
     
     // Process CSV export blocks
     let csvData = null;
