@@ -1029,7 +1029,10 @@ body {
   <div class="ai-chat" id="aiChat">
     <div class="ai-chat-header">
       <h4>🤖 PI Assistant</h4>
-      <button class="ai-chat-close" onclick="toggleAiChat()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="ai-chat-close" onclick="clearAiChat()" title="New chat" style="font-size:13px;">🔄 New</button>
+        <button class="ai-chat-close" onclick="toggleAiChat()">✕</button>
+      </div>
     </div>
     <div class="ai-chat-messages" id="aiMessages">
       <div class="ai-msg assistant">Hey! I'm your Player Intelligence assistant. I have access to all your player data. Ask me anything — player segments, export lists, retention ideas, anomalies, you name it. Try:<br><br>
@@ -2668,6 +2671,13 @@ function toggleAiChat() {
   if (chat.classList.contains('open')) document.getElementById('aiInput').focus();
 }
 
+function clearAiChat() {
+  aiConversationHistory = [];
+  aiFullDataSent = false;
+  const messagesEl = document.getElementById('aiMessages');
+  messagesEl.innerHTML = `<div class="ai-msg assistant">Chat cleared. Ask me anything about your players — I have full access to the data.</div>`;
+}
+
 function buildDataContext() {
   if (!allPlayers.length) return 'No player data loaded yet. Ask the user to upload CSV files first.';
   
@@ -2678,71 +2688,102 @@ function buildDataContext() {
   const now = new Date();
   const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const twoMonthsStart = new Date(now.getFullYear(), now.getMonth()-2, 1);
   
-  // Build rich context
-  let ctx = `APPUESTA PLAYER INTELLIGENCE DATA CONTEXT (as of ${now.toLocaleDateString()}):\n`;
-  ctx += `Total players: ${allPlayers.length}\n`;
-  ctx += `Depositors: ${dep.length}\n`;
+  let ctx = `APPUESTA PLAYER INTELLIGENCE DATA (${now.toLocaleDateString()}):\n`;
+  ctx += `Total players: ${allPlayers.length} | Depositors: ${dep.length}\n`;
   ctx += `Segments: ${JSON.stringify(segments)}\n`;
-  ctx += `Total GGR: $${dep.reduce((s,p)=>s+p.totalNGR,0).toFixed(2)}\n`;
-  ctx += `Avg GGR/depositor: $${dep.length>0?(dep.reduce((s,p)=>s+p.totalNGR,0)/dep.length).toFixed(2):'0'}\n`;
-  ctx += `Profitable (>=$50 GGR): ${dep.filter(p=>p.totalNGR>=50).length}\n`;
+  ctx += `Total GGR: $${dep.reduce((s,p)=>s+p.totalNGR,0).toFixed(0)}\n`;
+  ctx += `Avg GGR/depositor: $${dep.length>0?(dep.reduce((s,p)=>s+p.totalNGR,0)/dep.length).toFixed(0):'0'}\n`;
+  ctx += `Profitable (>=$50 GGR): ${dep.filter(p=>p.totalNGR>=50).length} (${(dep.filter(p=>p.totalNGR>=50).length/dep.length*100).toFixed(1)}%)\n`;
   
-  // Date-based metrics if available
   const withDates = dep.filter(p => p.firstDepositDate && p.lastActivityDate);
   if (withDates.length > 0) {
     const lifespans = withDates.map(p => Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate)/86400000)));
-    const sameDayChurn = lifespans.filter(l => l === 0).length;
-    ctx += `Players with date data: ${withDates.length}\n`;
-    ctx += `Same-day churners (0d lifespan): ${sameDayChurn} (${(sameDayChurn/withDates.length*100).toFixed(1)}%)\n`;
-    ctx += `First-week churners (<=7d): ${lifespans.filter(l=>l<=7).length} (${(lifespans.filter(l=>l<=7).length/withDates.length*100).toFixed(1)}%)\n`;
+    ctx += `Same-day churners: ${lifespans.filter(l=>l===0).length} (${(lifespans.filter(l=>l===0).length/withDates.length*100).toFixed(0)}%)\n`;
+    ctx += `First-week churners: ${lifespans.filter(l=>l<=7).length} (${(lifespans.filter(l=>l<=7).length/withDates.length*100).toFixed(0)}%)\n`;
     
-    // Feb/Mar depositor retention
-    const febDepositors = dep.filter(p => p.lastDepositDate && p.lastDepositDate >= lastMonthStart && p.firstDepositDate && p.firstDepositDate < curMonthStart);
-    const retainedToMar = febDepositors.filter(p => p.lastDepositDate >= curMonthStart);
-    ctx += `Feb depositors: ${febDepositors.length}, retained into Mar: ${retainedToMar.length}\n`;
+    // Monthly deposit retention
+    const curMonthDeps = dep.filter(p => p.lastDepositDate && p.lastDepositDate >= curMonthStart);
+    const lastMonthDeps = dep.filter(p => p.lastDepositDate && p.lastDepositDate >= lastMonthStart && p.firstDepositDate && p.firstDepositDate < curMonthStart);
+    const twoMonthDeps = dep.filter(p => p.lastDepositDate && p.lastDepositDate >= twoMonthsStart && p.firstDepositDate && p.firstDepositDate < lastMonthStart);
+    const retainedLastToCur = lastMonthDeps.filter(p => p.lastDepositDate >= curMonthStart);
+    ctx += `Current month depositors: ${curMonthDeps.length}\n`;
+    ctx += `Last month depositors: ${lastMonthDeps.length}, retained into current: ${retainedLastToCur.length}\n`;
+    
+    // Players who deposited last month but NOT this month (reactivation targets)
+    const lapsed = lastMonthDeps.filter(p => p.lastDepositDate < curMonthStart);
+    ctx += `Lapsed from last month (deposited last month, not this month): ${lapsed.length}\n`;
   }
   
-  // Snapshot history
-  const snaps = loadAllSnapshotsSync();
-  ctx += `Historical snapshots: ${snaps.length} weeks\n`;
-  
-  // Sample player data structure (first 3 players) so AI knows available fields
-  ctx += `\nSample player fields: ${JSON.stringify(Object.keys(allPlayers[0]))}\n`;
-  
-  // Product breakdown
   const sports = dep.filter(p => p.hasSportsBets);
   const casinoOnly = dep.filter(p => !p.hasSportsBets && p.depositCount > 0);
-  ctx += `Sports bettors: ${sports.length}, Casino-only: ${casinoOnly.length}\n`;
+  ctx += `Sports bettors: ${sports.length} | Casino-only: ${casinoOnly.length}\n`;
+  
+  // VIP/whale info
+  const vips = dep.filter(p => p.segment === 'vip');
+  if (vips.length > 0) {
+    ctx += `VIPs: ${vips.length}, total GGR: $${vips.reduce((s,p)=>s+p.totalNGR,0).toFixed(0)}, avg: $${(vips.reduce((s,p)=>s+p.totalNGR,0)/vips.length).toFixed(0)}\n`;
+  }
+  
+  const snaps = loadAllSnapshotsSync();
+  ctx += `Historical snapshots: ${snaps.length} weeks\n`;
   
   return ctx;
 }
 
-function buildPlayerSummaryForAI() {
-  // Compact player list for AI queries — include key fields
+function buildPlayerSummaryForAI(maxPlayers) {
+  const limit = maxPlayers || 425;
   return allPlayers
     .filter(p => p.depositCount > 0 || p.totalDeposits > 0)
+    .slice(0, limit)
     .map(p => ({
       id: p.id,
-      username: p.username,
-      name: p.name,
-      email: p.email,
-      segment: p.segment,
-      ngr: p.totalNGR,
-      deposits: p.totalDeposits,
-      depositCount: p.depositCount,
-      sportsBets: p.sportsBets,
-      product: p.productType,
-      currency: p.currency,
-      daysSinceActivity: p.daysSinceActivity,
-      firstDeposit: p.firstDepositDate ? p.firstDepositDate.toISOString().split('T')[0] : null,
-      lastDeposit: p.lastDepositDate ? p.lastDepositDate.toISOString().split('T')[0] : null,
-      lastActivity: p.lastActivityDate ? p.lastActivityDate.toISOString().split('T')[0] : null,
-      lifespan: p.firstDepositDate && p.lastActivityDate ? Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate)/86400000)) : null
+      un: p.username,
+      nm: p.name,
+      em: p.email,
+      seg: p.segment,
+      ngr: Math.round(p.totalNGR*100)/100,
+      dep: Math.round(p.totalDeposits*100)/100,
+      dc: p.depositCount,
+      sb: p.sportsBets,
+      pt: p.productType,
+      cur: p.currency,
+      dsa: p.daysSinceActivity,
+      fd: p.firstDepositDate ? p.firstDepositDate.toISOString().split('T')[0] : null,
+      ld: p.lastDepositDate ? p.lastDepositDate.toISOString().split('T')[0] : null,
+      la: p.lastActivityDate ? p.lastActivityDate.toISOString().split('T')[0] : null,
+      ls: p.firstDepositDate && p.lastActivityDate ? Math.max(0, Math.round((p.lastActivityDate - p.firstDepositDate)/86400000)) : null
     }));
 }
 
 let aiConversationHistory = [];
+let aiFullDataSent = false;
+
+const AI_SYSTEM_PROMPT = `You are the Appuesta Player Intelligence Assistant — an expert analytics copilot for an online sports betting and casino operator in Latin America.
+
+You have FULL ACCESS to the player database provided in the context. Use it to answer questions with REAL data — real player IDs, real emails, real numbers.
+
+PLAYER DATA FIELD KEY: id=player ID, un=username, nm=name, em=email, seg=segment, ngr=net gaming revenue (GGR), dep=total deposits, dc=deposit count, sb=sports bets, pt=product type (Sports/Casino/Both), cur=currency, dsa=days since last activity, fd=first deposit date, ld=last deposit date, la=last activity date, ls=lifespan in days
+
+SEGMENTS: new (recent signups), active (engaged), vip (high value), cooling (slowing down), atrisk (likely to churn), churned (inactive 31+ days), registered (signed up but no deposit)
+
+CAPABILITIES:
+1. Answer questions with precise numbers from the data
+2. Export player lists — include a CSV block: [CSV_EXPORT]header1,header2\\nval1,val2[/CSV_EXPORT] (use \\n for newlines within the block). ALWAYS include this when the user asks for a list, export, CSV, or says "send me"
+3. Surface insights proactively
+4. Suggest retention campaigns with real target counts
+5. Compare segments, products, time periods
+
+RULES:
+- Use REAL data only — never fabricate numbers or players
+- When asked for lists, ALWAYS include player IDs and emails
+- Keep answers concise but data-rich
+- Format: $1,234 not 1234.00
+- When you reference a count, you can provide the full list if asked
+- You have conversation memory — reference previous answers for follow-ups
+- If the user asks to "send" a list, include the [CSV_EXPORT] block
+- For large lists (50+ players), still include ALL of them in the CSV export`;
 
 async function sendAiMessage() {
   const input = document.getElementById('aiInput');
@@ -2753,107 +2794,136 @@ async function sendAiMessage() {
   const sendBtn = document.getElementById('aiSendBtn');
   
   // Add user message to UI
-  messagesEl.innerHTML += `<div class="ai-msg user">${msg.replace(/</g,'&lt;')}</div>`;
+  const userDiv = document.createElement('div');
+  userDiv.className = 'ai-msg user';
+  userDiv.textContent = msg;
+  messagesEl.appendChild(userDiv);
   input.value = '';
   sendBtn.disabled = true;
   
   // Add to conversation history
   aiConversationHistory.push({ role: "user", content: msg });
   
-  // Keep last 10 exchanges to stay within token limits
-  if (aiConversationHistory.length > 20) aiConversationHistory = aiConversationHistory.slice(-20);
+  // Trim conversation history — keep last 6 exchanges (12 messages) 
+  // but always include a summary of truncated context
+  if (aiConversationHistory.length > 12) {
+    const trimmed = aiConversationHistory.slice(-12);
+    trimmed.unshift({ role: "user", content: "[Previous conversation was trimmed for space. Continue from here.]" });
+    aiConversationHistory = trimmed;
+  }
   
   // Show typing indicator
-  messagesEl.innerHTML += `<div class="ai-typing" id="aiTyping"><span></span><span></span><span></span></div>`;
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'ai-typing';
+  typingDiv.id = 'aiTyping';
+  typingDiv.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(typingDiv);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   
   try {
     const dataContext = buildDataContext();
-    const playerData = buildPlayerSummaryForAI();
     
-    // Truncate player data if too large (keep under token limits)
-    let playerStr = JSON.stringify(playerData);
-    if (playerStr.length > 80000) {
-      playerStr = JSON.stringify(playerData.slice(0, 200)) + `\n... (showing 200 of ${playerData.length} players. Full dataset available.)`;
+    // Send full player data on first message, compact on follow-ups
+    let playerStr;
+    if (!aiFullDataSent) {
+      const playerData = buildPlayerSummaryForAI(425);
+      playerStr = JSON.stringify(playerData);
+      // If still too large, cap it
+      if (playerStr.length > 100000) {
+        playerStr = JSON.stringify(buildPlayerSummaryForAI(250));
+        playerStr += `\n(Showing 250 of ${allPlayers.filter(p=>p.depositCount>0).length} depositors)`;
+      }
+      aiFullDataSent = true;
+    } else {
+      // On follow-ups, just send context summary — the AI has the data from conversation history
+      playerStr = `[Player data was provided in the first message. Use your conversation memory. Total depositors: ${allPlayers.filter(p=>p.depositCount>0).length}]`;
     }
+    
+    const systemPrompt = AI_SYSTEM_PROMPT + '\n\n' + dataContext + '\n\nPLAYER DATA:\n' + playerStr;
     
     const response = await fetch("/.netlify/functions/ai-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        system: `You are the Appuesta Player Intelligence Assistant — an expert analytics copilot for an online sports betting and casino operator in Latin America.
-
-You have FULL ACCESS to the player database. Use it to answer questions precisely with real numbers, real player IDs, and real emails.
-
-${dataContext}
-
-FULL PLAYER DATA (depositors):
-${playerStr}
-
-CAPABILITIES:
-1. Answer any question about players, segments, retention, churn, revenue
-2. Filter and export player lists — when the user wants a list, format it as a clean table with columns they need, and add a CSV_EXPORT block like: [CSV_EXPORT]id,username,email,segment,ngr\\n123,user1,email@test.com,churned,50[/CSV_EXPORT]
-3. Proactively surface insights — if you notice something interesting or concerning, mention it
-4. Suggest specific retention actions with target player counts and estimated impact
-5. Compare segments, time periods, product types
-6. Flag anomalies or trends
-
-RULES:
-- Always use REAL data from the player list above — never make up numbers
-- When asked for player lists, include player IDs and emails so they can action them
-- Keep responses concise but data-rich
-- Format numbers nicely ($1,234 not 1234.00)
-- If you can't answer precisely, explain what data would be needed
-- When suggesting campaigns, estimate the target audience size from the actual data
-- You have FULL CONVERSATION MEMORY — refer back to previous answers when the user asks follow-up questions`,
+        max_tokens: 4096,
+        system: systemPrompt,
         messages: aiConversationHistory
       })
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     
     const data = await response.json();
     const typing = document.getElementById('aiTyping');
     if (typing) typing.remove();
     
-    let reply = data.content?.map(c => c.text || '').join('\n') || 'Sorry, I couldn\'t process that. Try again.';
+    // Check for API errors
+    let reply;
+    if (data.error) {
+      reply = `API Error: ${data.error.message || JSON.stringify(data.error)}`;
+      console.error('API error:', data.error);
+      // Reset full data flag so next message resends data
+      if (data.error.message && data.error.message.includes('token')) {
+        aiFullDataSent = false;
+        aiConversationHistory = aiConversationHistory.slice(-4);
+        reply += '\n\nConversation was too long — I\'ve trimmed the history. Please re-ask your question.';
+      }
+    } else if (data.content && data.content.length > 0) {
+      reply = data.content.map(c => c.text || '').join('\n');
+    } else {
+      reply = 'Unexpected response. Check browser console (F12) for details.';
+      console.error('Unexpected response:', JSON.stringify(data));
+    }
     
-    // Save assistant reply to conversation history
+    // Save to conversation history
     aiConversationHistory.push({ role: "assistant", content: reply });
     
-    // Process CSV export blocks
+    // Extract CSV export blocks
     let csvData = null;
     const csvMatch = reply.match(/\[CSV_EXPORT\]([\s\S]*?)\[\/CSV_EXPORT\]/);
     if (csvMatch) {
-      csvData = csvMatch[1].replace(/\\n/g, '\n');
-      reply = reply.replace(/\[CSV_EXPORT\][\s\S]*?\[\/CSV_EXPORT\]/, '');
+      csvData = csvMatch[1].replace(/\\n/g, '\n').trim();
+      reply = reply.replace(/\[CSV_EXPORT\][\s\S]*?\[\/CSV_EXPORT\]/, '').trim();
     }
     
-    // Format the reply (basic markdown)
+    // Format reply
     let formatted = reply
+      .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\n/g, '<br>');
     
-    // Add CSV download button if export was generated
+    // Add CSV download
     if (csvData) {
-      const blob = new Blob([csvData], { type: 'text/csv' });
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      formatted += `<br><a class="csv-download" href="${url}" download="appuesta_export.csv">📥 Download CSV</a>`;
+      const rows = csvData.split('\n').length - 1;
+      formatted += `<br><a class="csv-download" href="${url}" download="appuesta_export_${Date.now()}.csv">📥 Download CSV (${rows} rows)</a>`;
     }
     
-    messagesEl.innerHTML += `<div class="ai-msg assistant">${formatted}</div>`;
+    const replyDiv = document.createElement('div');
+    replyDiv.className = 'ai-msg assistant';
+    replyDiv.innerHTML = formatted;
+    messagesEl.appendChild(replyDiv);
     
   } catch(e) {
     const typing = document.getElementById('aiTyping');
     if (typing) typing.remove();
-    messagesEl.innerHTML += `<div class="ai-msg assistant">Sorry, I encountered an error: ${e.message}. Make sure the dashboard has data loaded.</div>`;
+    const errDiv = document.createElement('div');
+    errDiv.className = 'ai-msg assistant';
+    errDiv.innerHTML = `Error: ${e.message}.<br><br>If this keeps happening, click "New Chat" and try again.`;
+    messagesEl.appendChild(errDiv);
     console.error('AI error:', e);
   }
   
   sendBtn.disabled = false;
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  input.focus();
 }
 
 function getMedian(arr) { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
