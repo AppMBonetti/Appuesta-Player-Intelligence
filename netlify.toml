@@ -2,12 +2,6 @@
   publish = "."
   functions = "netlify/functions"
 
-# SPA routing — all paths serve index.html
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 # Security headers
 [[headers]]
   for = "/*"
