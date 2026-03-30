@@ -902,12 +902,16 @@ body {
         <th onclick="sortTable('email')">Email</th>
         <th onclick="sortTable('registeredAt')">Registered</th>
         <th onclick="sortTable('daysSinceActivity')">Days Inactive</th>
+        <th onclick="sortTable('daysSinceLastBet')">Days No Bet</th>
         <th onclick="sortTable('totalDeposits')">Deposits $</th>
+        <th onclick="sortTable('totalWithdrawals')">Withdrawals $</th>
+        <th onclick="sortTable('netDeposits')">Net Deposits</th>
         <th onclick="sortTable('depositCount')">Dep Count</th>
         <th onclick="sortTable('totalNGR')">Total GGR</th>
         <th onclick="sortTable('sportsBets')">Sports Bets</th>
         <th onclick="sortTable('sportsGGR')">Sports GGR</th>
         <th onclick="sortTable('casinoGGR')">Casino GGR</th>
+        <th onclick="sortTable('churnedDate')">Churned Since</th>
         <th onclick="sortTable('riskScore')">Risk</th>
       </tr></thead><tbody id="playerTableBody"></tbody></table>
     </div>
@@ -919,7 +923,9 @@ body {
     <div class="kpi-row" style="grid-template-columns:repeat(6,1fr);" id="insightsKpis"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="insightNav">
       <button class="btn btn-sm insight-btn active" onclick="showInsightView('profitability')" data-view="profitability">💰 Time to Profit</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('profitDNA')" data-view="profitDNA">🧬 Profitable DNA</button>
       <button class="btn btn-sm insight-btn" onclick="showInsightView('churn')" data-view="churn">⏱ Churn Timing</button>
+      <button class="btn btn-sm insight-btn" onclick="showInsightView('churnByMonth')" data-view="churnByMonth">📅 Churn by Month</button>
       <button class="btn btn-sm insight-btn" onclick="showInsightView('cohort')" data-view="cohort">📅 Monthly Cohort</button>
       <button class="btn btn-sm insight-btn" onclick="showInsightView('signals')" data-view="signals">🔔 Behavioral Signals</button>
       <button class="btn btn-sm insight-btn" onclick="showInsightView('winback')" data-view="winback">🔄 Win-back</button>
@@ -928,8 +934,8 @@ body {
 
     <!-- View: Time to Profitability -->
     <div class="insight-view" id="view-profitability">
-      <div class="chart-card full-width"><h3>Profitability Gap Analysis (GGR ≥ $50)</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How long from first deposit until a player generates ≥$50 GGR. Profitable defined as GGR ≥ $50 to account for acquisition cost.</p>
+      <div class="chart-card full-width"><h3>Profitability Gap Analysis (GGR ≥ $<span id="profitThreshDisplay">50</span>)</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">How long from first deposit until a player generates sufficient GGR. Threshold adjustable in Settings. Also shows net deposit position (deposits minus withdrawals).</p>
         <div id="profitSummary" style="margin-bottom:16px;"></div>
         <div class="charts-grid">
           <div class="chart-container"><canvas id="profitTimingChart"></canvas></div>
@@ -940,6 +946,33 @@ body {
 
     <!-- View: Churn Timing -->
     <div class="insight-view" id="view-churn" style="display:none;">
+
+    <!-- View: Profitable Player DNA -->
+    <div class="insight-view" id="view-profitDNA" style="display:none;">
+      <div class="chart-card full-width"><h3>🧬 Profitable Player DNA — What Makes Them Tick?</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Deep analysis of your profitable players vs unprofitable. Identifies the behaviors and patterns that predict profitability so you can push all players in that direction.</p>
+        <div id="profitDNASummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="dnaDepCountChart"></canvas></div>
+          <div class="chart-container"><canvas id="dnaDepSizeChart"></canvas></div>
+        </div>
+        <div class="charts-grid" style="margin-top:16px;">
+          <div class="chart-container"><canvas id="dnaProductChart"></canvas></div>
+          <div class="chart-container"><canvas id="dnaDepFreqChart"></canvas></div>
+        </div>
+        <div id="dnaPatterns" style="margin-top:16px;"></div>
+      </div>
+    </div>
+
+    <!-- View: Churn by Month -->
+    <div class="insight-view" id="view-churnByMonth" style="display:none;">
+      <div class="chart-card full-width"><h3>📅 Churn by Month — When Did They Leave?</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Groups churned/at-risk players by the month they stopped being active. Download any month's list to target for reactivation.</p>
+        <div id="churnByMonthSummary" style="margin-bottom:16px;"></div>
+        <div class="chart-container"><canvas id="churnByMonthChart"></canvas></div>
+        <div id="churnByMonthTable" style="margin-top:16px;overflow-x:auto;"></div>
+      </div>
+    </div>
       <div class="chart-card full-width"><h3>Churn Timing Analysis</h3>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Activity lifespan of inactive players (cooling/at-risk/churned). Lifespan = days from first deposit to last activity.</p>
         <div id="churnSummary" style="margin-bottom:16px;"></div>
@@ -1017,6 +1050,10 @@ body {
       <div class="setting-row"><div class="setting-label">VIP Min Deposits $<small>Alternative qualifier: total deposits ≥ this (with positive GGR)</small></div><input class="setting-input" type="number" id="set-vipMinDep" value="1000"><span style="font-size:12px;color:var(--text-muted);">USD</span></div>
       <div class="setting-row"><div class="setting-label">Min Deposits for Active<small>Min deposit count to graduate from "New"</small></div><input class="setting-input" type="number" id="set-minDeposits" value="3"><span style="font-size:12px;color:var(--text-muted);">deposits</span></div>
       <div class="setting-row"><div class="setting-label">Min Sports Bets for Active<small>Alternative qualifier</small></div><input class="setting-input" type="number" id="set-minBets" value="5"><span style="font-size:12px;color:var(--text-muted);">bets</span></div>
+      <div style="border-top:2px solid var(--border-subtle);margin:16px 0;"></div>
+      <h4 style="color:var(--red);margin-bottom:12px;">Profitability Settings</h4>
+      <div class="setting-row"><div class="setting-label">Cost Per Acquisition (CPA)<small>Average cost to acquire one depositor. Used for true profitability calculation.</small></div><input class="setting-input" type="number" id="set-cpa" value="30"><span style="font-size:12px;color:var(--text-muted);">USD</span></div>
+      <div class="setting-row"><div class="setting-label">Profitability GGR Threshold<small>Primary GGR threshold to consider a player "profitable"</small></div><input class="setting-input" type="number" id="set-profitGGR" value="50"><span style="font-size:12px;color:var(--text-muted);">USD GGR</span></div>
       <button class="btn btn-primary" style="margin-top:16px;" onclick="saveSettings()">Save Settings</button>
     </div>
   </div>
@@ -1148,7 +1185,7 @@ const SEGMENT_ORDER = { registered: 0, new: 1, active: 2, vip: 3, cooling: 4, at
 const SEGMENT_NAMES = { registered: 'Registered Only', new: 'New', active: 'Active', vip: 'VIP / Whale', cooling: 'Cooling', atrisk: 'At-Risk', churned: 'Churned' };
 const SEGMENT_COLORS = { registered: '#7c4dff', new: '#2979ff', active: '#00c853', vip: '#ffc107', cooling: '#ff9800', atrisk: '#ff5722', churned: '#9e9e9e' };
 
-let settings = { newDays: 30, activeDays: 7, coolingDays: 15, atriskDays: 30, churnDays: 31, vipPct: 10, vipMinDep: 1000, minDeposits: 3, minBets: 5 };
+let settings = { newDays: 30, activeDays: 7, coolingDays: 15, atriskDays: 30, churnDays: 31, vipPct: 10, vipMinDep: 1000, minDeposits: 3, minBets: 5, cpa: 30, profitThresholds: [25, 50, 100] };
 
 // ================================================================
 //  STORAGE ENGINE
@@ -1431,7 +1468,17 @@ async function loadSettingsFromDB() {
 }
 
 async function saveSettings() {
-  Object.keys(settings).forEach(k => { const el = document.getElementById('set-'+k); if (el) settings[k] = parseInt(el.value) || settings[k]; });
+  Object.keys(settings).forEach(k => {
+    if (k === 'profitThresholds') return; // handled separately
+    const el = document.getElementById('set-'+k);
+    if (el) settings[k] = parseInt(el.value) || settings[k];
+  });
+  // Handle profitGGR → update profitThresholds[1] (the primary one)
+  const profGGR = document.getElementById('set-profitGGR');
+  if (profGGR) {
+    const v = parseInt(profGGR.value) || 50;
+    settings.profitThresholds = [Math.round(v/2), v, v*2];
+  }
   try {
     await supabase.from('settings').upsert({ id: 1, config: settings, updated_at: new Date().toISOString() });
   } catch(e) { console.warn('Settings save failed:', e); }
@@ -1473,25 +1520,33 @@ function loadSnapIntoUI(snap) {
   
   allPlayers = Object.entries(snap.players).map(([id, p]) => {
     const parseD = s => s ? new Date(s) : null;
+    const lastAct = parseD(p.lad);
+    const firstDep = parseD(p.fdd);
+    const regAt = parseD(p.reg);
+    // RECALCULATE daysSinceActivity from stored date — not the stale snapshot value
+    const dsa = lastAct ? Math.floor((new Date() - lastAct) / (1000*60*60*24)) : (p.da || p.daysSinceActivity || 9999);
     return {
       id, username: p.un || p.username || '', name: p.nm || p.name || '', email: p.em || p.email || '',
       segment: 'registered', // Will be recalculated by segmentPlayers()
       totalNGR: p.ngr || p.totalNGR || 0, totalDeposits: p.dep || p.totalDeposits || 0,
       depositCount: p.dc || p.depositCount || 0, sportsBets: p.sb || p.sportsBets || 0,
       sportsGGR: p.sg || p.sportsGGR || 0, casinoGGR: p.cg || p.casinoGGR || 0,
-      daysSinceActivity: p.da || p.daysSinceActivity || 9999, riskScore: 0,
+      daysSinceActivity: dsa, riskScore: 0,
       productType: p.pt || p.productType || '', currency: p.cur || p.currency || '',
       // Restore date fields from snapshot (stored as ISO strings)
-      firstDepositDate: parseD(p.fdd), lastDepositDate: parseD(p.ldd),
-      lastActivityDate: parseD(p.lad), firstActivityDate: parseD(p.fad),
-      registeredAt: parseD(p.reg), lastWithdrawalDate: parseD(p.lwd),
+      firstDepositDate: firstDep, lastDepositDate: parseD(p.ldd),
+      lastActivityDate: lastAct, firstActivityDate: parseD(p.fad),
+      registeredAt: regAt, lastWithdrawalDate: parseD(p.lwd),
       sportsLastBet: parseD(p.slb), sportsFirstBet: parseD(p.sfb),
       totalWithdrawals: p.tw || 0, casinoBets: p.cb || 0, casinoWins: p.cw || 0,
       sportsTurnover: p.st || 0, sportsAvgStake: 0, sportsActiveDays: 0,
       sportsMargin: 0, sportsFreebets: 0, sportsComboShare: 0,
+      netDeposits: (p.dep || p.totalDeposits || 0) - (p.tw || 0),
+      housePosition: (p.dep || p.totalDeposits || 0) - (p.tw || 0),
       hasAnyActivity: (p.dc||p.depositCount||0) > 0 || (p.sb||p.sportsBets||0) > 0,
       hasDeposited: (p.dc||p.depositCount||0) > 0, hasSportsBets: (p.sb||p.sportsBets||0) > 0,
-      daysSinceFirstDeposit: p.dsfd || 999, tenure: 0
+      daysSinceFirstDeposit: firstDep ? Math.floor((new Date() - firstDep) / (1000*60*60*24)) : (p.dsfd || 999),
+      tenure: regAt ? Math.floor((new Date() - regAt) / (1000*60*60*24)) : 0
     };
   });
   
@@ -1526,33 +1581,45 @@ function handleFiles(files) {
   Array.from(files).forEach(file => {
     if (!file.name.toLowerCase().endsWith('.csv')) return;
     Papa.parse(file, {
-      header: true, skipEmptyLines: true,
+      header: true, skipEmptyLines: true, delimiter: '', // auto-detect
       complete: function(results) {
-        const cols = (results.meta.fields || []).join(',').toLowerCase();
-        if (cols.includes('lifetime_ggr') && cols.includes('ext_player_id')) {
-          rawFiles.betby = results.data;
-          updateFileStatus('betby', file.name, results.data.length);
-        } else if (cols.includes('totalggrcasino') || cols.includes('totaldepositamount') || cols.includes('registeredat')) {
-          const depositors = results.data.filter(r => (parseInt(r.totalDepositCount)||0) > 0).length;
-          const total = results.data.length;
-          const ratio = total > 0 ? depositors/total : 0;
-          if (ratio < 0.3 && total > 300) {
-            rawFiles.reg = results.data; updateFileStatus('reg', file.name, total);
-          } else {
-            const fn = file.name.toLowerCase();
-            if (fn.includes('clp')) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
-            else if (fn.includes('usd') || fn.includes('report')) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
-            else if (!rawFiles.usd) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
-            else if (!rawFiles.clp) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
-            else { rawFiles.reg = results.data; updateFileStatus('reg', file.name, total); }
-          }
-        } else if (cols.includes('email') && cols.includes('id')) {
-          rawFiles.reg = results.data; updateFileStatus('reg', file.name, results.data.length);
+        // If auto-detect failed (only 1 column), retry with semicolon
+        if (results.meta.fields && results.meta.fields.length <= 2 && results.data.length > 0) {
+          Papa.parse(file, {
+            header: true, skipEmptyLines: true, delimiter: ';',
+            complete: function(r2) { processCSVResult(r2, file); }
+          });
+        } else {
+          processCSVResult(results, file);
         }
-        checkReady();
       }
     });
   });
+}
+
+function processCSVResult(results, file) {
+  const cols = (results.meta.fields || []).join(',').toLowerCase();
+  if (cols.includes('lifetime_ggr') && cols.includes('ext_player_id')) {
+    rawFiles.betby = results.data;
+    updateFileStatus('betby', file.name, results.data.length);
+  } else if (cols.includes('totalggrcasino') || cols.includes('totaldepositamount') || cols.includes('registeredat')) {
+    const depositors = results.data.filter(r => (parseInt(r.totalDepositCount)||0) > 0).length;
+    const total = results.data.length;
+    const ratio = total > 0 ? depositors/total : 0;
+    if (ratio < 0.3 && total > 300) {
+      rawFiles.reg = results.data; updateFileStatus('reg', file.name, total);
+    } else {
+      const fn = file.name.toLowerCase();
+      if (fn.includes('clp')) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
+      else if (fn.includes('usd') || fn.includes('report')) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
+      else if (!rawFiles.usd) { rawFiles.usd = results.data; updateFileStatus('usd', file.name, results.data.length); }
+      else if (!rawFiles.clp) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
+      else { rawFiles.reg = results.data; updateFileStatus('reg', file.name, total); }
+    }
+  } else if (cols.includes('email') && cols.includes('id')) {
+    rawFiles.reg = results.data; updateFileStatus('reg', file.name, results.data.length);
+  }
+  checkReady();
 }
 
 function updateFileStatus(type, filename, count) {
@@ -1658,6 +1725,8 @@ function mergeAndSegment() {
 
   allPlayers = Object.values(pm).map(p => {
     p.totalNGR = (p.sportsGGR||0) + (p.casinoGGR||0);
+    p.netDeposits = (p.totalDeposits||0) - (p.totalWithdrawals||0);
+    p.housePosition = p.netDeposits; // alias: what the house holds
     const dates = [p.lastDepositDate, p.sportsLastBet, p.lastWithdrawalDate].filter(Boolean);
     p.lastActivityDate = dates.length > 0 ? new Date(Math.max(...dates.map(d=>d.getTime()))) : null;
     p.daysSinceActivity = daysSince(p.lastActivityDate);
@@ -1775,10 +1844,14 @@ function renderDashboard() {
   const totalNGR = depositors.reduce((s,p) => s+p.totalNGR, 0);
   const totalDep = depositors.reduce((s,p) => s+p.totalDeposits, 0);
   const totalWd = depositors.reduce((s,p) => s+p.totalWithdrawals, 0);
+  const totalNet = totalDep - totalWd;
   const avgNGR = depositors.length > 0 ? totalNGR/depositors.length : 0;
   const regToDepRate = allPlayers.length > 0 ? (depositors.length/allPlayers.length*100) : 0;
   const atRisk = allPlayers.filter(p => p.segment==='atrisk').length;
   const cooling = allPlayers.filter(p => p.segment==='cooling').length;
+  const negNetPlayers = depositors.filter(p => (p.netDeposits||0) < 0);
+  const profitThresh = settings.profitThresholds ? settings.profitThresholds[1] : 50;
+  const profitableCount = depositors.filter(p => p.totalNGR >= profitThresh).length;
 
   // Week-over-week deltas — compare against PREVIOUS snapshot (second-to-last)
   const allSnaps = loadAllSnapshotsSync();
@@ -1787,9 +1860,9 @@ function renderDashboard() {
 
   document.getElementById('kpiRow').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Total Players</div><div class="kpi-value">${allPlayers.length.toLocaleString()}</div><div class="kpi-sub">${depositors.length} depositors (${regToDepRate.toFixed(1)}% conversion)</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total GGR</div><div class="kpi-value">$${fmt(totalNGR)}</div><div class="kpi-sub">Sports + Casino GGR combined</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg GGR / Player</div><div class="kpi-value">$${fmt(avgNGR)}</div><div class="kpi-sub">Depositors only</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total Deposits</div><div class="kpi-value">$${fmt(totalDep)}</div><div class="kpi-sub">Net after withdrawals: $${fmt(totalDep-totalWd)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total GGR</div><div class="kpi-value">$${fmt(totalNGR)}</div><div class="kpi-sub">Profitable (≥$${profitThresh}): ${profitableCount} (${depositors.length>0?(profitableCount/depositors.length*100).toFixed(1):0}%)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Net Deposits (House Position)</div><div class="kpi-value" style="color:${totalNet>=0?'var(--green)':'var(--red)'};">$${fmt(totalNet)}</div><div class="kpi-sub">$${fmt(totalDep)} in − $${fmt(totalWd)} out</div></div>
+    <div class="kpi-card"><div class="kpi-label">Negative Net Players</div><div class="kpi-value" style="color:var(--red);">${negNetPlayers.length}</div><div class="kpi-sub">Withdrew more than deposited · $${fmt(negNetPlayers.reduce((s,p)=>s+(p.netDeposits||0),0))} exposure</div></div>
     <div class="kpi-card"><div class="kpi-label">⚠️ Attention Needed</div><div class="kpi-value" style="color:var(--orange);">${cooling+atRisk}</div><div class="kpi-sub">${cooling} cooling + ${atRisk} at-risk</div></div>
     <div class="kpi-card"><div class="kpi-label">Segment Migrations</div><div class="kpi-value">${migrations.length}</div><div class="kpi-sub">${migrations.filter(m=>m.direction==='degraded').length} degraded · ${migrations.filter(m=>m.direction==='improved').length} improved</div></div>
   `;
@@ -1966,6 +2039,9 @@ function renderPlayerTable() {
   document.getElementById('playerTableBody').innerHTML = page.map(p => {
     const rc = p.riskScore<30?'#00c853':p.riskScore<60?'#ffc107':'#ff5722';
     const prevBadge = p.prevSegment && p.prevSegment!==p.segment ? `<span class="prev-badge">was: ${p.prevSegment}</span>` : '';
+    const netCol = (p.netDeposits||0) < 0 ? 'color:var(--red);' : '';
+    const daysSinceLastBet = p.sportsLastBet ? daysSince(p.sportsLastBet) : (p.sportsBets > 0 ? '?' : '—');
+    const churnedSince = ['churned','atrisk','cooling'].includes(p.segment) && p.lastActivityDate ? p.lastActivityDate.toLocaleDateString() : '—';
     return `<tr>
       <td><span class="segment-badge ${p.segment}">${p.segment}</span>${prevBadge}</td>
       <td>${p.id}</td><td style="font-family:'DM Sans',sans-serif;">${p.username||'—'}</td>
@@ -1973,9 +2049,15 @@ function renderPlayerTable() {
       <td style="font-family:'DM Sans',sans-serif;font-size:11px;">${p.email||'—'}</td>
       <td>${p.registeredAt?p.registeredAt.toLocaleDateString():'—'}</td>
       <td>${p.daysSinceActivity<9999?p.daysSinceActivity+'d':'—'}</td>
-      <td>$${fmt(p.totalDeposits)}</td><td>${p.depositCount}</td>
-      <td>$${fmt(p.totalNGR)}</td><td>${p.sportsBets||'—'}</td>
+      <td>${typeof daysSinceLastBet==='number'?daysSinceLastBet+'d':daysSinceLastBet}</td>
+      <td>$${fmt(p.totalDeposits)}</td>
+      <td>$${fmt(p.totalWithdrawals||0)}</td>
+      <td style="${netCol}">$${fmt(p.netDeposits||0)}</td>
+      <td>${p.depositCount}</td>
+      <td style="${p.totalNGR<0?'color:var(--red);':''}">$${fmt(p.totalNGR)}</td>
+      <td>${p.sportsBets||'—'}</td>
       <td>$${fmt(p.sportsGGR)}</td><td>$${fmt(p.casinoGGR)}</td>
+      <td>${churnedSince}</td>
       <td><div class="risk-bar"><div class="risk-bar-fill" style="width:${p.riskScore}%;background:${rc};"></div></div>${p.riskScore}</td></tr>`;
   }).join('');
 
@@ -1992,8 +2074,8 @@ function goPage(p) { currentPage=p; renderPlayerTable(); }
 
 function exportSegment() {
   let data=[...allPlayers]; if(currentFilter!=='all')data=data.filter(p=>p.segment===currentFilter); if(currentSearch){const q=currentSearch.toLowerCase();data=data.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.username||'').toLowerCase().includes(q));}
-  const h=['Segment','Previous Segment','Player ID','Username','Name','Email','Registered','Days Inactive','Deposits USD','Dep Count','Total GGR','Sports Bets','Sports GGR','Casino GGR','Risk Score','Product Type','Currency','New Deposits This Week','New Bets This Week','GGR Delta'];
-  const rows=data.map(p=>[p.segment,p.prevSegment||'',p.id,p.username,p.name,p.email,p.registeredAt?p.registeredAt.toISOString().split('T')[0]:'',p.daysSinceActivity<9999?p.daysSinceActivity:'',p.totalDeposits.toFixed(2),p.depositCount,p.totalNGR.toFixed(2),p.sportsBets,p.sportsGGR.toFixed(2),p.casinoGGR.toFixed(2),p.riskScore,p.productType,p.currency,p.newDepositsThisWeek??'',p.newBetsThisWeek??'',(p.ngrDelta!=null)?p.ngrDelta.toFixed(2):'']);
+  const h=['Segment','Previous Segment','Player ID','Username','Name','Email','Registered','Days Inactive','Days No Bet','Deposits USD','Withdrawals USD','Net Deposits','Dep Count','Total GGR','Sports Bets','Sports GGR','Casino GGR','Risk Score','Product Type','Currency','Last Activity','New Deposits This Week','New Bets This Week','GGR Delta'];
+  const rows=data.map(p=>[p.segment,p.prevSegment||'',p.id,p.username,p.name,p.email,p.registeredAt?p.registeredAt.toISOString().split('T')[0]:'',p.daysSinceActivity<9999?p.daysSinceActivity:'',p.sportsLastBet?daysSince(p.sportsLastBet):'',p.totalDeposits.toFixed(2),(p.totalWithdrawals||0).toFixed(2),(p.netDeposits||0).toFixed(2),p.depositCount,p.totalNGR.toFixed(2),p.sportsBets,p.sportsGGR.toFixed(2),p.casinoGGR.toFixed(2),p.riskScore,p.productType,p.currency,p.lastActivityDate?p.lastActivityDate.toISOString().split('T')[0]:'',p.newDepositsThisWeek??'',p.newBetsThisWeek??'',(p.ngrDelta!=null)?p.ngrDelta.toFixed(2):'']);
   downloadCSV([h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'), `appuesta_${currentFilter}_${new Date().toISOString().split('T')[0]}.csv`);
 }
 
@@ -2019,7 +2101,8 @@ function renderInsights() {
   const totalNGR = dep.reduce((s,p) => s+p.totalNGR, 0);
   const avgGGR = totalNGR / dep.length;
   const medGGR = getMedian(dep.map(p => p.totalNGR));
-  const profitableCount = dep.filter(p => p.totalNGR >= 50).length;
+  const profitThresh = settings.profitThresholds ? settings.profitThresholds[1] : 50;
+  const profitableCount = dep.filter(p => p.totalNGR >= profitThresh).length;
   const profitPct = (profitableCount / dep.length * 100);
   const avgDep = dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length;
 
@@ -2078,7 +2161,7 @@ function renderInsights() {
   document.getElementById('insightsKpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Avg GGR/Player</div><div class="kpi-value">$${fmt(avgGGR)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
     <div class="kpi-card"><div class="kpi-label">Median GGR</div><div class="kpi-value">$${fmt(medGGR)}</div><div class="kpi-sub">50th percentile</div></div>
-    <div class="kpi-card"><div class="kpi-label">Profitable (≥$50)</div><div class="kpi-value">${profitableCount}</div><div class="kpi-sub">${profitPct.toFixed(1)}% of depositors</div></div>
+    <div class="kpi-card"><div class="kpi-label">Profitable (≥$${profitThresh})</div><div class="kpi-value">${profitableCount}</div><div class="kpi-sub">${profitPct.toFixed(1)}% of depositors</div></div>
     <div class="kpi-card"><div class="kpi-label">Current Retention (${curMonthName})</div><div class="kpi-value" style="color:${currentRetPct>=50?'var(--green)':currentRetPct>=25?'#ffc107':'var(--red)'};">${hasDates ? currentRetPct.toFixed(1)+'%' : '—'}</div><div class="kpi-sub">${hasDates ? currentRetCount+' of '+lastMonthPool+' '+lastMonthName+' players' : 'Need date fields'}</div></div>
     <div class="kpi-card"><div class="kpi-label">LM Retention (${lastMonthName})</div><div class="kpi-value">${hasDates ? lmRetPct.toFixed(1)+'%' : '—'}</div><div class="kpi-sub">${hasDates ? lmRetCount+' retained from prior month' : 'Need date fields'}</div></div>
     <div class="kpi-card"><div class="kpi-label">Avg Deposit</div><div class="kpi-value">$${fmt(avgDep)}</div><div class="kpi-sub">Per depositor</div></div>`;
@@ -2089,6 +2172,8 @@ function renderInsights() {
   renderBehavioralSignals(dep);
   renderWinback();
   renderRevenueConcentration(dep, totalNGR);
+  renderProfitableDNA(dep);
+  renderChurnByMonth(dep);
 }
 
 // ---- VIEW 1: Time to Profitability (Profitability Gap Analysis) ----
@@ -2101,7 +2186,7 @@ function renderTimeToProfitability(dep) {
   }
 
   const withDates = dep.filter(p => p.firstDepositDate && p.lastActivityDate);
-  const THRESHOLD = 50;
+  const THRESHOLD = settings.profitThresholds ? settings.profitThresholds[1] : 50;
 
   // Compute lifespan for every player (first deposit → last activity)
   const allLifespans = withDates.map(p => ({
@@ -2134,15 +2219,27 @@ function renderTimeToProfitability(dep) {
   const firstWeekCount = allLifespans.filter(p => p.lifespan <= 7).length;
   const firstWeekPct = (firstWeekCount / allLifespans.length * 100);
 
-  container.innerHTML = `<div class="insight-kpi-row" style="grid-template-columns:repeat(3,1fr);">
-    <div class="insight-kpi"><div class="label">Profitability Rate</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${allLifespans.length} | Avg GGR $${fmt(avgGGRProfit)}</div></div>
+  // Net deposit analysis for profitable players
+  const profNetDeps = profitable.map(p => p.netDeposits || 0);
+  const profAvgNet = profNetDeps.reduce((s,v)=>s+v,0) / profitable.length;
+  const profNegNet = profitable.filter(p => (p.netDeposits||0) < 0).length;
+  const allNegNet = allLifespans.filter(p => (p.netDeposits||0) < 0).length;
+
+  // Update threshold display
+  const threshDisplay = document.getElementById('profitThreshDisplay');
+  if (threshDisplay) threshDisplay.textContent = THRESHOLD;
+
+  container.innerHTML = `<div class="insight-kpi-row" style="grid-template-columns:repeat(4,1fr);">
+    <div class="insight-kpi"><div class="label">Profitability Rate (GGR ≥$${THRESHOLD})</div><div class="value" style="color:var(--green);">${profitRate.toFixed(1)}%</div><div class="sub">${profitable.length} of ${allLifespans.length} | Avg GGR $${fmt(avgGGRProfit)}</div></div>
     <div class="insight-kpi"><div class="label">Median Lifespan (Profitable)</div><div class="value" style="color:var(--green);">${medLifespanProfit}d</div><div class="sub">Days active for profitable players</div></div>
     <div class="insight-kpi"><div class="label">Median Lifespan (All Players)</div><div class="value">${medLifespanAll}d</div><div class="sub">Typical player survives this long</div></div>
+    <div class="insight-kpi"><div class="label">Avg Net Deposits (Profitable)</div><div class="value" style="color:${profAvgNet>=0?'var(--green)':'var(--red)'};">$${fmt(profAvgNet)}</div><div class="sub">${profNegNet} profitable players have negative net (${(profNegNet/profitable.length*100).toFixed(0)}%)</div></div>
   </div>
-  <div class="insight-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+  <div class="insight-kpi-row" style="grid-template-columns:repeat(4,1fr);margin-top:8px;">
     <div class="insight-kpi"><div class="label">Profitability Gap</div><div class="value" style="color:${gapColor};">${gap > 0 ? '+' : ''}${gap}d</div><div class="sub">${gap > 0 ? 'Players need '+gap+' more days to reach profitability' : 'Players live past profitability point'}</div></div>
     <div class="insight-kpi"><div class="label">Reach Profit Window</div><div class="value" style="color:${reachPct>=50?'var(--green)':reachPct>=25?'#ffc107':'var(--red)'};">${reachPct.toFixed(0)}%</div><div class="sub">${reachProfitWindow} players survive ≥${medLifespanProfit}d</div></div>
     <div class="insight-kpi"><div class="label">Early Churn</div><div class="value" style="color:var(--red);">${sameDayPct.toFixed(0)}% / ${firstWeekPct.toFixed(0)}%</div><div class="sub">Same-day (${sameDayCount}) / First week (${firstWeekCount})</div></div>
+    <div class="insight-kpi"><div class="label">Negative Net Deposit Players</div><div class="value" style="color:var(--red);">${allNegNet}</div><div class="sub">${(allNegNet/allLifespans.length*100).toFixed(1)}% withdrew more than deposited</div></div>
   </div>`;
 
   // ---- Chart 1: Player Survival Curve ----
@@ -2720,6 +2817,13 @@ function buildDataContext() {
   const casinoOnly = dep.filter(p => !p.hasSportsBets && p.depositCount > 0);
   ctx += `Sports bettors: ${sports.length} | Casino-only: ${casinoOnly.length}\n`;
   
+  // Net deposit / house position data
+  const totalNet = dep.reduce((s,p) => s+(p.netDeposits||0), 0);
+  const negNetPlayers = dep.filter(p => (p.netDeposits||0) < 0);
+  ctx += `Total net deposits (house position): $${totalNet.toFixed(0)}\n`;
+  ctx += `Players with negative net deposits (withdrew > deposited): ${negNetPlayers.length} ($${negNetPlayers.reduce((s,p)=>s+(p.netDeposits||0),0).toFixed(0)} exposure)\n`;
+  ctx += `CPA setting: $${settings.cpa||30} | Profitability threshold: $${settings.profitThresholds?settings.profitThresholds[1]:50} GGR\n`;
+  
   // VIP/whale info
   const vips = dep.filter(p => p.segment === 'vip');
   if (vips.length > 0) {
@@ -2745,6 +2849,8 @@ function buildPlayerSummaryForAI(maxPlayers) {
       seg: p.segment,
       ngr: Math.round(p.totalNGR*100)/100,
       dep: Math.round(p.totalDeposits*100)/100,
+      wd: Math.round((p.totalWithdrawals||0)*100)/100,
+      net: Math.round((p.netDeposits||0)*100)/100,
       dc: p.depositCount,
       sb: p.sportsBets,
       pt: p.productType,
@@ -2764,7 +2870,7 @@ const AI_SYSTEM_PROMPT = `You are the Appuesta Player Intelligence Assistant —
 
 You have FULL ACCESS to the player database provided in the context. Use it to answer questions with REAL data — real player IDs, real emails, real numbers.
 
-PLAYER DATA FIELD KEY: id=player ID, un=username, nm=name, em=email, seg=segment, ngr=net gaming revenue (GGR), dep=total deposits, dc=deposit count, sb=sports bets, pt=product type (Sports/Casino/Both), cur=currency, dsa=days since last activity, fd=first deposit date, ld=last deposit date, la=last activity date, ls=lifespan in days
+PLAYER DATA FIELD KEY: id=player ID, un=username, nm=name, em=email, seg=segment, ngr=net gaming revenue (GGR), dep=total deposits, wd=total withdrawals, net=net deposits (dep-wd, negative=withdrew more than deposited), dc=deposit count, sb=sports bets, pt=product type (Sports/Casino/Both), cur=currency, dsa=days since last activity, fd=first deposit date, ld=last deposit date, la=last activity date, ls=lifespan in days
 
 SEGMENTS: new (recent signups), active (engaged), vip (high value), cooling (slowing down), atrisk (likely to churn), churned (inactive 31+ days), registered (signed up but no deposit)
 
@@ -2933,6 +3039,267 @@ async function sendAiMessage() {
   sendBtn.disabled = false;
   messagesEl.scrollTop = messagesEl.scrollHeight;
   input.focus();
+}
+
+// ---- VIEW: Profitable Player DNA ----
+function renderProfitableDNA(dep) {
+  const container = document.getElementById('profitDNASummary');
+  if (!container) return;
+  const profitThresh = settings.profitThresholds ? settings.profitThresholds[1] : 50;
+  const thresholds = settings.profitThresholds || [25, 50, 100];
+  
+  const profitable = dep.filter(p => p.totalNGR >= profitThresh);
+  const unprofitable = dep.filter(p => p.totalNGR < profitThresh && p.totalNGR >= 0);
+  const negative = dep.filter(p => p.totalNGR < 0);
+  
+  if (profitable.length === 0) { container.innerHTML = '<div class="insight-notice">No profitable players found at current threshold ($'+profitThresh+' GGR).</div>'; return; }
+  
+  // Multi-threshold profitability
+  const threshData = thresholds.map(t => ({ t, count: dep.filter(p => p.totalNGR >= t).length, pct: (dep.filter(p => p.totalNGR >= t).length / dep.length * 100) }));
+  
+  // Profitable player stats
+  const pDepCounts = profitable.map(p => p.depositCount);
+  const uDepCounts = unprofitable.map(p => p.depositCount);
+  const pAvgDep = profitable.reduce((s,p) => s+p.totalDeposits, 0) / profitable.length;
+  const uAvgDep = unprofitable.length > 0 ? unprofitable.reduce((s,p) => s+p.totalDeposits, 0) / unprofitable.length : 0;
+  const pMedianDep = getMedian(pDepCounts);
+  const uMedianDep = getMedian(uDepCounts);
+  const pAvgNet = profitable.reduce((s,p) => s+(p.netDeposits||0), 0) / profitable.length;
+  const pNegNet = profitable.filter(p => (p.netDeposits||0) < 0).length;
+  
+  // Deposit frequency (days between deposits) — estimate from lifespan/count
+  const pFreq = profitable.filter(p => p.depositCount > 1 && p.firstDepositDate && p.lastActivityDate).map(p => {
+    const days = Math.max(1, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+    return days / (p.depositCount - 1);
+  });
+  const uFreq = unprofitable.filter(p => p.depositCount > 1 && p.firstDepositDate && p.lastActivityDate).map(p => {
+    const days = Math.max(1, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+    return days / (p.depositCount - 1);
+  });
+  const pAvgFreq = pFreq.length > 0 ? pFreq.reduce((s,v) => s+v, 0) / pFreq.length : 0;
+  const uAvgFreq = uFreq.length > 0 ? uFreq.reduce((s,v) => s+v, 0) / uFreq.length : 0;
+  
+  // Avg deposit size
+  const pAvgSize = profitable.filter(p=>p.depositCount>0).map(p => p.totalDeposits / p.depositCount);
+  const uAvgSize = unprofitable.filter(p=>p.depositCount>0).map(p => p.totalDeposits / p.depositCount);
+  const pMedianSize = getMedian(pAvgSize);
+  const uMedianSize = getMedian(uAvgSize);
+  
+  // Product mix
+  const pSports = profitable.filter(p => p.productType === 'Sports').length;
+  const pCasino = profitable.filter(p => p.productType === 'Casino').length;
+  const pBoth = profitable.filter(p => p.productType === 'Both').length;
+  const uSports = unprofitable.filter(p => p.productType === 'Sports').length;
+  const uCasino = unprofitable.filter(p => p.productType === 'Casino').length;
+  const uBoth = unprofitable.filter(p => p.productType === 'Both').length;
+  
+  // Predictive patterns — deposit count thresholds
+  const depThresholds = [2, 3, 5, 7, 10];
+  const patterns = depThresholds.map(t => {
+    const group = dep.filter(p => p.depositCount >= t);
+    const profInGroup = group.filter(p => p.totalNGR >= profitThresh).length;
+    return { threshold: t+'+ deposits', total: group.length, profitable: profInGroup, rate: group.length > 0 ? (profInGroup / group.length * 100) : 0 };
+  });
+  
+  // Deposit frequency patterns (if dates available)
+  const freqPatterns = [];
+  if (pFreq.length > 0) {
+    const freqBuckets = [
+      { label: 'Every 1-3 days', min: 0, max: 3 },
+      { label: 'Every 4-7 days', min: 3.01, max: 7 },
+      { label: 'Every 8-14 days', min: 7.01, max: 14 },
+      { label: 'Every 15-30 days', min: 14.01, max: 30 },
+      { label: 'Every 30+ days', min: 30.01, max: 99999 }
+    ];
+    const allFreq = dep.filter(p => p.depositCount > 1 && p.firstDepositDate && p.lastActivityDate).map(p => {
+      const days = Math.max(1, Math.round((p.lastActivityDate - p.firstDepositDate) / 86400000));
+      return { ...p, freq: days / (p.depositCount - 1) };
+    });
+    freqBuckets.forEach(b => {
+      const g = allFreq.filter(p => p.freq >= b.min && p.freq <= b.max);
+      const prof = g.filter(p => p.totalNGR >= profitThresh).length;
+      freqPatterns.push({ label: b.label, total: g.length, profitable: prof, rate: g.length > 0 ? (prof/g.length*100) : 0 });
+    });
+  }
+
+  container.innerHTML = `
+    <div class="insight-kpi-row" style="grid-template-columns:repeat(3,1fr);">
+      ${threshData.map(t => `<div class="insight-kpi"><div class="label">Profitable ≥$${t.t} GGR</div><div class="value" style="color:var(--green);">${t.count}</div><div class="sub">${t.pct.toFixed(1)}% of depositors</div></div>`).join('')}
+    </div>
+    <div class="insight-kpi-row" style="margin-top:8px;">
+      <div class="insight-kpi"><div class="label">Median Deposits (Profitable)</div><div class="value" style="color:var(--green);">${pMedianDep}</div><div class="sub">vs ${uMedianDep} unprofitable · ${(pMedianDep/Math.max(1,uMedianDep)).toFixed(1)}x more</div></div>
+      <div class="insight-kpi"><div class="label">Median Deposit Size</div><div class="value">$${fmt(pMedianSize)}</div><div class="sub">vs $${fmt(uMedianSize)} unprofitable</div></div>
+      <div class="insight-kpi"><div class="label">Avg Days Between Deposits</div><div class="value">${pAvgFreq > 0 ? pAvgFreq.toFixed(1)+'d' : '—'}</div><div class="sub">vs ${uAvgFreq > 0 ? uAvgFreq.toFixed(1)+'d' : '—'} unprofitable</div></div>
+      <div class="insight-kpi"><div class="label">Avg Net Deposits (Profitable)</div><div class="value" style="color:${pAvgNet>=0?'var(--green)':'var(--red)'};">$${fmt(pAvgNet)}</div><div class="sub">${pNegNet} have negative net (${(pNegNet/profitable.length*100).toFixed(0)}%)</div></div>
+    </div>`;
+  
+  // Chart 1: Deposit count distribution — profitable vs unprofitable
+  const dcBuckets = ['1','2','3-5','6-10','11-20','21+'];
+  const dcRanges = [[1,1],[2,2],[3,5],[6,10],[11,20],[21,99999]];
+  const pDcData = dcRanges.map(r => profitable.filter(p => p.depositCount >= r[0] && p.depositCount <= r[1]).length);
+  const uDcData = dcRanges.map(r => unprofitable.filter(p => p.depositCount >= r[0] && p.depositCount <= r[1]).length);
+  
+  if (charts.dnaDepCount) charts.dnaDepCount.destroy();
+  charts.dnaDepCount = new Chart(document.getElementById('dnaDepCountChart'), {
+    type: 'bar', data: { labels: dcBuckets, datasets: [
+      { label: 'Profitable (≥$'+profitThresh+')', data: pDcData, backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4 },
+      { label: 'Unprofitable', data: uDcData, backgroundColor: 'rgba(158,158,158,0.5)', borderRadius: 4 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Deposit Count Distribution: Profitable vs Unprofitable', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+  });
+  
+  // Chart 2: Deposit size distribution
+  const sizeBuckets = ['$0-25','$25-50','$50-100','$100-250','$250-500','$500+'];
+  const sizeRanges = [[0,25],[25,50],[50,100],[100,250],[250,500],[500,999999]];
+  const pSzData = sizeRanges.map(r => profitable.filter(p => { const avg = p.depositCount > 0 ? p.totalDeposits/p.depositCount : 0; return avg >= r[0] && avg < r[1]; }).length);
+  const uSzData = sizeRanges.map(r => unprofitable.filter(p => { const avg = p.depositCount > 0 ? p.totalDeposits/p.depositCount : 0; return avg >= r[0] && avg < r[1]; }).length);
+  
+  if (charts.dnaDepSize) charts.dnaDepSize.destroy();
+  charts.dnaDepSize = new Chart(document.getElementById('dnaDepSizeChart'), {
+    type: 'bar', data: { labels: sizeBuckets, datasets: [
+      { label: 'Profitable', data: pSzData, backgroundColor: 'rgba(0,200,83,0.7)', borderRadius: 4 },
+      { label: 'Unprofitable', data: uSzData, backgroundColor: 'rgba(158,158,158,0.5)', borderRadius: 4 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Avg Deposit Size: Profitable vs Unprofitable', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+  });
+  
+  // Chart 3: Product mix comparison
+  if (charts.dnaProduct) charts.dnaProduct.destroy();
+  charts.dnaProduct = new Chart(document.getElementById('dnaProductChart'), {
+    type: 'bar', data: { labels: ['Sports Only', 'Casino Only', 'Both'], datasets: [
+      { label: 'Profitable', data: [pSports, pCasino, pBoth], backgroundColor: ['rgba(41,121,255,0.7)','rgba(228,0,43,0.7)','rgba(255,193,7,0.7)'], borderRadius: 4 },
+      { label: 'Unprofitable', data: [uSports, uCasino, uBoth], backgroundColor: ['rgba(41,121,255,0.3)','rgba(228,0,43,0.3)','rgba(255,193,7,0.3)'], borderRadius: 4 }
+    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Product Mix: Profitable vs Unprofitable', color: '#8a8d91' } },
+      scales: { y: { ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+  });
+  
+  // Chart 4: Deposit frequency profitability rate
+  if (freqPatterns.length > 0) {
+    if (charts.dnaDepFreq) charts.dnaDepFreq.destroy();
+    charts.dnaDepFreq = new Chart(document.getElementById('dnaDepFreqChart'), {
+      type: 'bar', data: { labels: freqPatterns.map(f => f.label), datasets: [
+        { label: '% Profitable', data: freqPatterns.map(f => f.rate),
+          backgroundColor: freqPatterns.map(f => f.rate >= 50 ? 'rgba(0,200,83,0.7)' : f.rate >= 25 ? 'rgba(255,193,7,0.7)' : 'rgba(255,87,34,0.7)'), borderRadius: 4, yAxisID: 'y' },
+        { label: 'Players', data: freqPatterns.map(f => f.total), type: 'line', borderColor: '#2979ff', pointBackgroundColor: '#2979ff', yAxisID: 'y1', tension: 0.3, pointRadius: 5 }
+      ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Profitability Rate by Deposit Frequency', color: '#8a8d91' } },
+        scales: { y: { position: 'left', ticks: { color: '#8a8d91', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }, y1: { position: 'right', ticks: { color: '#8a8d91' }, grid: { display: false } }, x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+    });
+  }
+  
+  // Patterns summary — predictive rules
+  const patternsEl = document.getElementById('dnaPatterns');
+  let ph = '<div style="background:var(--bg-surface);border-radius:12px;padding:20px;border:1px solid var(--border-subtle);">';
+  ph += '<h4 style="margin-bottom:12px;color:var(--yellow);">🔑 Predictive Patterns — What Makes a Player Profitable?</h4>';
+  ph += '<table class="player-table" style="font-size:12px;"><thead><tr><th>Behavior</th><th>Players</th><th>Profitable</th><th>% Profitable</th><th>Lift vs Average</th></tr></thead><tbody>';
+  const baseRate = dep.length > 0 ? (profitable.length / dep.length * 100) : 0;
+  patterns.forEach(p => {
+    const lift = baseRate > 0 ? (p.rate / baseRate).toFixed(1) : '—';
+    const color = p.rate >= 50 ? 'var(--green)' : p.rate >= 25 ? '#ffc107' : 'var(--text-muted)';
+    ph += `<tr><td style="font-family:'DM Sans',sans-serif;font-weight:600;">${p.threshold}</td><td>${p.total}</td><td>${p.profitable}</td><td style="color:${color};font-weight:700;">${p.rate.toFixed(1)}%</td><td>${lift}x</td></tr>`;
+  });
+  if (freqPatterns.length > 0) {
+    freqPatterns.forEach(p => {
+      const lift = baseRate > 0 ? (p.rate / baseRate).toFixed(1) : '—';
+      const color = p.rate >= 50 ? 'var(--green)' : p.rate >= 25 ? '#ffc107' : 'var(--text-muted)';
+      ph += `<tr><td style="font-family:'DM Sans',sans-serif;font-weight:600;">Deposits ${p.label}</td><td>${p.total}</td><td>${p.profitable}</td><td style="color:${color};font-weight:700;">${p.rate.toFixed(1)}%</td><td>${lift}x</td></tr>`;
+    });
+  }
+  ph += '</tbody></table>';
+  ph += `<p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Base profitability rate: ${baseRate.toFixed(1)}%. Lift = how many times more likely to be profitable vs average player. CPA: $${settings.cpa||30}.</p>`;
+  ph += '</div>';
+  patternsEl.innerHTML = ph;
+}
+
+// ---- VIEW: Churn by Month ----
+function renderChurnByMonth(dep) {
+  const container = document.getElementById('churnByMonthSummary');
+  const tableEl = document.getElementById('churnByMonthTable');
+  if (!container) return;
+  
+  const churned = dep.filter(p => ['churned','atrisk','cooling'].includes(p.segment) && p.lastActivityDate);
+  if (churned.length === 0) {
+    container.innerHTML = '<div class="insight-notice">No churned players with date data found.</div>';
+    return;
+  }
+  
+  // Group by month of last activity
+  const monthGroups = {};
+  churned.forEach(p => {
+    const d = p.lastActivityDate;
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    if (!monthGroups[key]) monthGroups[key] = { key, year: d.getFullYear(), month: d.getMonth(), players: [] };
+    monthGroups[key].players.push(p);
+  });
+  
+  const months = Object.values(monthGroups).sort((a,b) => a.key.localeCompare(b.key));
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  
+  // KPIs
+  const topMonth = months.reduce((max, m) => m.players.length > (max?.players.length || 0) ? m : max, null);
+  const recentMonth = months[months.length - 1];
+  const totalGGRLost = churned.reduce((s,p) => s+p.totalNGR, 0);
+  const highValueChurned = churned.filter(p => p.totalNGR >= (settings.profitThresholds?settings.profitThresholds[1]:50));
+  
+  container.innerHTML = `<div class="insight-kpi-row">
+    <div class="insight-kpi"><div class="label">Total Churned/At-Risk</div><div class="value">${churned.length}</div><div class="sub">With known last activity date</div></div>
+    <div class="insight-kpi"><div class="label">Peak Churn Month</div><div class="value" style="color:var(--red);">${topMonth ? monthNames[topMonth.month]+' '+topMonth.year : '—'}</div><div class="sub">${topMonth ? topMonth.players.length+' players left' : ''}</div></div>
+    <div class="insight-kpi"><div class="label">High-Value Churned</div><div class="value" style="color:var(--red);">${highValueChurned.length}</div><div class="sub">GGR ≥ $${settings.profitThresholds?settings.profitThresholds[1]:50} — worth reactivating</div></div>
+    <div class="insight-kpi"><div class="label">Total GGR Lost</div><div class="value">$${fmt(totalGGRLost)}</div><div class="sub">Lifetime value of lost players</div></div>
+  </div>`;
+  
+  // Chart
+  if (charts.churnByMonth) charts.churnByMonth.destroy();
+  charts.churnByMonth = new Chart(document.getElementById('churnByMonthChart'), {
+    type: 'bar', data: {
+      labels: months.map(m => monthNames[m.month] + ' ' + String(m.year).slice(2)),
+      datasets: [
+        { label: 'Players Churned', data: months.map(m => m.players.length),
+          backgroundColor: months.map(m => m.players.length >= (topMonth?.players.length*0.8||99) ? 'rgba(255,87,34,0.8)' : 'rgba(255,152,0,0.5)'), borderRadius: 6, yAxisID: 'y' },
+        { label: 'GGR Lost ($)', data: months.map(m => m.players.reduce((s,p)=>s+p.totalNGR,0)),
+          type: 'line', borderColor: '#e4002b', pointBackgroundColor: '#e4002b', yAxisID: 'y1', tension: 0.3, pointRadius: 5 }
+      ]
+    }, options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8a8d91' } }, title: { display: true, text: 'Churn Volume by Month of Last Activity', color: '#8a8d91' } },
+      scales: { y: { position: 'left', ticks: { color: '#8a8d91' }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Players', color: '#8a8d91' } },
+        y1: { position: 'right', ticks: { color: '#8a8d91', callback: v => '$'+fmt(v) }, grid: { display: false }, title: { display: true, text: 'GGR Lost', color: '#8a8d91' } },
+        x: { ticks: { color: '#8a8d91' }, grid: { display: false } } } }
+  });
+  
+  // Table with download buttons per month
+  let th = '<table class="player-table" style="font-size:12px;"><thead><tr><th>Month</th><th>Players Lost</th><th>Avg GGR</th><th>Avg Net Deposits</th><th>High-Value (≥$'+((settings.profitThresholds||[])[1]||50)+')</th><th>Sports</th><th>Casino</th><th>Download</th></tr></thead><tbody>';
+  [...months].reverse().forEach(m => {
+    const avgGGR = m.players.length > 0 ? m.players.reduce((s,p)=>s+p.totalNGR,0)/m.players.length : 0;
+    const avgNet = m.players.length > 0 ? m.players.reduce((s,p)=>s+(p.netDeposits||0),0)/m.players.length : 0;
+    const hv = m.players.filter(p => p.totalNGR >= ((settings.profitThresholds||[])[1]||50)).length;
+    const sports = m.players.filter(p => p.hasSportsBets).length;
+    const casino = m.players.filter(p => !p.hasSportsBets).length;
+    const label = monthNames[m.month] + ' ' + m.year;
+    th += `<tr>
+      <td style="font-weight:600;">${label}</td>
+      <td>${m.players.length}</td>
+      <td>$${fmt(avgGGR)}</td>
+      <td style="${avgNet<0?'color:var(--red);':''}">$${fmt(avgNet)}</td>
+      <td>${hv}</td><td>${sports}</td><td>${casino}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="exportChurnMonth('${m.key}')">📥 CSV</button></td>
+    </tr>`;
+  });
+  th += '</tbody></table>';
+  tableEl.innerHTML = th;
+}
+
+// Export churned players for a specific month
+function exportChurnMonth(monthKey) {
+  const dep = allPlayers.filter(p => p.hasAnyActivity);
+  const churned = dep.filter(p => {
+    if (!['churned','atrisk','cooling'].includes(p.segment) || !p.lastActivityDate) return false;
+    const d = p.lastActivityDate;
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    return key === monthKey;
+  });
+  if (churned.length === 0) return alert('No players found for ' + monthKey);
+  const h = ['Player ID','Username','Name','Email','Segment','Last Activity','GGR','Net Deposits','Total Deposits','Withdrawals','Deposit Count','Product Type'];
+  const rows = churned.map(p => [p.id,p.username,p.name,p.email,p.segment,p.lastActivityDate?p.lastActivityDate.toISOString().split('T')[0]:'',p.totalNGR.toFixed(2),(p.netDeposits||0).toFixed(2),p.totalDeposits.toFixed(2),(p.totalWithdrawals||0).toFixed(2),p.depositCount,p.productType]);
+  downloadCSV([h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'), `appuesta_churned_${monthKey}.csv`);
 }
 
 function getMedian(arr) { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
