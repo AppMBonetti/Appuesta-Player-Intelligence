@@ -35,7 +35,7 @@
   --segment-atrisk: #ff5722;
   --segment-churned: #9e9e9e;
   --segment-registered: #7c4dff;
-  --border-subtle: var(--border-subtle);
+  --border-subtle: rgba(255,255,255,0.06);
   --chart-grid: rgba(255,255,255,0.04);
   --chart-text: #8a8d91;
   --scrollbar-thumb: #53565a;
@@ -2841,7 +2841,9 @@ async function sendAiMessage() {
     
     const systemPrompt = AI_SYSTEM_PROMPT + '\n\n' + dataContext + '\n\nPLAYER DATA:\n' + playerStr;
     
-    const response = await fetch("/.netlify/functions/ai-chat", {
+    const functionUrl = window.location.origin + '/.netlify/functions/ai-chat';
+    console.log('[AI] Sending to:', functionUrl, 'Messages:', aiConversationHistory.length, 'System prompt length:', systemPrompt.length);
+    const response = await fetch(functionUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2851,6 +2853,8 @@ async function sendAiMessage() {
         messages: aiConversationHistory
       })
     });
+    
+    console.log('[AI] Response status:', response.status, 'Content-Type:', response.headers.get('content-type'));
     
     if (!response.ok) {
       const text = await response.text();
