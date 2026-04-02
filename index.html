@@ -920,6 +920,15 @@ body {
 
   <!-- ============ INSIGHTS TAB ============ -->
   <div class="section" id="tab-insights">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:600;">📅 Timeframe:</span>
+        <select id="insightTimeframe" class="search-input" style="width:180px;" onchange="onInsightTimeframeChange()">
+          <option value="all">All Time</option>
+        </select>
+      </div>
+      <span id="insightTimeframeInfo" style="font-size:12px;color:var(--text-muted);"></span>
+    </div>
     <div class="kpi-row" style="grid-template-columns:repeat(6,1fr);" id="insightsKpis"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="insightNav">
       <button class="btn btn-sm insight-btn active" onclick="showInsightView('profitability')" data-view="profitability">💰 Time to Profit</button>
@@ -2118,70 +2127,150 @@ function showInsightView(view) {
   if (btn) btn.classList.add('active');
 }
 
-function renderInsights() {
+// Global insight timeframe state
+let insightTimeframe = 'all'; // 'all' or 'YYYY-MM'
+
+function populateInsightTimeframe(dep) {
+  const select = document.getElementById('insightTimeframe');
+  if (!select) return;
+  const hasDates = dep.some(p => p.lastDepositDate);
+  if (!hasDates) { select.innerHTML = '<option value="all">All Time</option>'; return; }
+  
+  // Collect all months that have deposit activity
+  const monthSet = new Set();
+  dep.forEach(p => {
+    if (p.lastDepositDate) {
+      const d = p.lastDepositDate;
+      monthSet.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+    }
+    if (p.firstDepositDate) {
+      const d = p.firstDepositDate;
+      monthSet.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+    }
+  });
+  const months = [...monthSet].sort().reverse();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  
+  let html = '<option value="all">All Time</option>';
+  months.forEach(m => {
+    const [y, mo] = m.split('-');
+    const label = monthNames[parseInt(mo)-1] + ' ' + y;
+    html += `<option value="${m}" ${m === insightTimeframe ? 'selected' : ''}>${label}</option>`;
+  });
+  select.innerHTML = html;
+}
+
+function getInsightFilteredPlayers() {
   const dep = allPlayers.filter(p => p.hasAnyActivity);
-  if (dep.length === 0) return;
+  if (insightTimeframe === 'all') return dep;
+  
+  // Filter: players who were active during the selected month
+  // "Active in month X" = lastDepositDate >= X start AND firstDepositDate < X end
+  const [y, mo] = insightTimeframe.split('-').map(Number);
+  const monthStart = new Date(y, mo - 1, 1);
+  const monthEnd = new Date(y, mo, 1);
+  
+  return dep.filter(p => {
+    // Player had deposit activity spanning into this month
+    const first = p.firstDepositDate || p.registeredAt;
+    const last = p.lastDepositDate || p.lastActivityDate;
+    if (!last) return false;
+    // Was active during this month: first deposit before month end AND last deposit on/after month start
+    return (!first || first < monthEnd) && last >= monthStart;
+  });
+}
+
+function getInsightRetentionMonth() {
+  // Returns the month to use for "current" retention calculations
+  if (insightTimeframe !== 'all') {
+    const [y, mo] = insightTimeframe.split('-').map(Number);
+    return new Date(y, mo - 1, 1);
+  }
+  // Auto-detect from data
+  const dep = allPlayers.filter(p => p.hasAnyActivity && p.lastDepositDate);
+  if (dep.length === 0) return new Date();
+  const maxDate = new Date(Math.max(...dep.map(p => p.lastDepositDate.getTime())));
+  return new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+}
+
+function onInsightTimeframeChange() {
+  insightTimeframe = document.getElementById('insightTimeframe').value;
+  renderInsights();
+}
+
+function renderInsights() {
+  const allDep = allPlayers.filter(p => p.hasAnyActivity);
+  if (allDep.length === 0) return;
+  
+  // Populate timeframe dropdown (only on first render or when data changes)
+  populateInsightTimeframe(allDep);
+  
+  // Get filtered players based on timeframe
+  const dep = getInsightFilteredPlayers();
+  const retentionMonthStart = getInsightRetentionMonth();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  
+  // Show info about current filter
+  const infoEl = document.getElementById('insightTimeframeInfo');
+  if (infoEl) {
+    if (insightTimeframe === 'all') {
+      infoEl.textContent = `Showing all ${dep.length} depositors`;
+    } else {
+      infoEl.textContent = `Showing ${dep.length} players active in ${monthNames[retentionMonthStart.getMonth()]} ${retentionMonthStart.getFullYear()} (of ${allDep.length} total)`;
+    }
+  }
 
   // Top KPIs
   const totalNGR = dep.reduce((s,p) => s+p.totalNGR, 0);
-  const avgGGR = totalNGR / dep.length;
+  const avgGGR = dep.length > 0 ? totalNGR / dep.length : 0;
   const medGGR = getMedian(dep.map(p => p.totalNGR));
   const profitThresh = settings.profitThresholds ? settings.profitThresholds[1] : 50;
   const profitableCount = dep.filter(p => p.totalNGR >= profitThresh).length;
-  const profitPct = (profitableCount / dep.length * 100);
-  const avgDep = dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length;
+  const profitPct = dep.length > 0 ? (profitableCount / dep.length * 100) : 0;
+  const avgDep = dep.length > 0 ? dep.reduce((s,p) => s+p.totalDeposits, 0) / dep.length : 0;
 
-  // Retention uses lastDepositDate (financial health view — who's putting money in)
-  // Dashboard segments still use lastActivityDate (operational view)
-  const now = new Date();
-  const curYear = now.getFullYear(), curMonth = now.getMonth();
-  const lastMonth = curMonth === 0 ? 11 : curMonth - 1;
-  const lastMonthYear = curMonth === 0 ? curYear - 1 : curYear;
-  const twoMonthsAgo = lastMonth === 0 ? 11 : lastMonth - 1;
-  const twoMonthsYear = lastMonth === 0 ? lastMonthYear - 1 : lastMonthYear;
-
+  // Retention: what % of players active in the selected month also deposited in the NEXT month?
   const hasDates = dep.some(p => p.lastDepositDate);
   let currentRetPct = 0, currentRetCount = 0, lastMonthPool = 0;
   let lmRetPct = 0, lmRetCount = 0, twoMonthPool = 0;
+  let curMonthName = monthNames[retentionMonthStart.getMonth()];
+  const prevMonthIdx = retentionMonthStart.getMonth() === 0 ? 11 : retentionMonthStart.getMonth() - 1;
+  const prevMonthYear = retentionMonthStart.getMonth() === 0 ? retentionMonthStart.getFullYear() - 1 : retentionMonthStart.getFullYear();
+  let lastMonthName = monthNames[prevMonthIdx];
 
   if (hasDates) {
-    const curMonthStart = new Date(curYear, curMonth, 1);
-    const lastMonthStart = new Date(lastMonthYear, lastMonth, 1);
-    const twoMonthStart = new Date(twoMonthsYear, twoMonthsAgo, 1);
+    const curMStart = retentionMonthStart;
+    const lastMStart = new Date(prevMonthYear, prevMonthIdx, 1);
+    const twoMAgo = prevMonthIdx === 0 ? 11 : prevMonthIdx - 1;
+    const twoMYear = prevMonthIdx === 0 ? prevMonthYear - 1 : prevMonthYear;
+    const twoMStart = new Date(twoMYear, twoMAgo, 1);
 
-    // Current Retention: Of depositors in last month (Feb), what % deposited in current month (Mar)?
-    // Feb pool = lastDepositDate >= Feb 1, AND firstDepositDate < Mar 1 (exclude brand new Mar)
-    const febPool = dep.filter(p => {
+    // Current Retention: of prev month depositors, what % deposited in selected month?
+    const prevPool = allDep.filter(p => {
       if (!p.lastDepositDate) return false;
-      if (p.lastDepositDate < lastMonthStart) return false;
+      if (p.lastDepositDate < lastMStart) return false;
       const first = p.firstDepositDate || p.registeredAt;
-      if (first && first >= curMonthStart) return false;
+      if (first && first >= curMStart) return false;
       return true;
     });
-    const retainedIntoCurrent = febPool.filter(p => p.lastDepositDate >= curMonthStart);
-    lastMonthPool = febPool.length;
-    currentRetCount = retainedIntoCurrent.length;
+    const retainedCur = prevPool.filter(p => p.lastDepositDate >= curMStart);
+    lastMonthPool = prevPool.length;
+    currentRetCount = retainedCur.length;
     currentRetPct = lastMonthPool > 0 ? (currentRetCount / lastMonthPool * 100) : 0;
-    console.log('[Current Retention] Feb depositors:', lastMonthPool, '| Deposited in Mar:', currentRetCount, '| %:', currentRetPct.toFixed(1));
 
-    // LM Retention: Of depositors 2 months ago (Jan), what % deposited last month (Feb)?
-    const janPool = dep.filter(p => {
+    // LM Retention: of 2-months-ago depositors, what % deposited in prev month?
+    const twoPool = allDep.filter(p => {
       if (!p.lastDepositDate) return false;
-      if (p.lastDepositDate < twoMonthStart) return false;
+      if (p.lastDepositDate < twoMStart) return false;
       const first = p.firstDepositDate || p.registeredAt;
-      if (first && first >= lastMonthStart) return false;
+      if (first && first >= lastMStart) return false;
       return true;
     });
-    const retainedIntoLast = janPool.filter(p => p.lastDepositDate >= lastMonthStart);
-    twoMonthPool = janPool.length;
-    lmRetCount = retainedIntoLast.length;
+    const retainedLM = twoPool.filter(p => p.lastDepositDate >= lastMStart);
+    twoMonthPool = twoPool.length;
+    lmRetCount = retainedLM.length;
     lmRetPct = twoMonthPool > 0 ? (lmRetCount / twoMonthPool * 100) : 0;
-    console.log('[LM Retention] Jan depositors:', twoMonthPool, '| Deposited in Feb:', lmRetCount, '| %:', lmRetPct.toFixed(1));
   }
-
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const curMonthName = monthNames[curMonth];
-  const lastMonthName = monthNames[lastMonth];
 
   document.getElementById('insightsKpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Avg GGR/Player</div><div class="kpi-value">$${fmt(avgGGR)}</div><div class="kpi-sub">${dep.length} depositors</div></div>
@@ -2524,9 +2613,12 @@ function renderMonthlyCohort(dep) {
 // ---- VIEW 4: Behavioral Signals ----
 function renderBehavioralSignals(dep) {
   const container = document.getElementById('signalsSummary');
-  const now = new Date();
-  const curMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const hasDates = dep.some(p => p.lastDepositDate);
+  
+  // Use the global insight timeframe for retention calculations
+  const retentionMonthStart = getInsightRetentionMonth();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const retentionMonthName = monthNames[retentionMonthStart.getMonth()] + ' ' + retentionMonthStart.getFullYear();
   
   const depBuckets = [
     { label: '1 deposit', min: 1, max: 1 },
@@ -2536,8 +2628,8 @@ function renderBehavioralSignals(dep) {
     { label: '11+ deposits', min: 11, max: 99999 }
   ];
 
-  // "Currently depositing" = lastDepositDate in current month
-  const isCurrentlyActive = p => p.lastDepositDate && p.lastDepositDate >= curMonthStart;
+  // "Currently depositing" = lastDepositDate in the most recent data month
+  const isCurrentlyActive = p => p.lastDepositDate && p.lastDepositDate >= retentionMonthStart;
   // Fallback if no dates: use segment
   const isRetained = hasDates ? isCurrentlyActive : (p => ['active','vip','new'].includes(p.segment));
 
@@ -2570,8 +2662,8 @@ function renderBehavioralSignals(dep) {
   const casinoRet = casinoOnly.length > 0 ? (casinoOnly.filter(isRetained).length / casinoOnly.length * 100) : 0;
 
   container.innerHTML = `<div class="insight-kpi-row">
-    <div class="insight-kpi"><div class="label">Single Deposit Retention</div><div class="value" style="color:var(--red);">${single.rate.toFixed(1)}%</div><div class="sub">${single.retained} of ${single.total} players</div></div>
-    <div class="insight-kpi"><div class="label">2nd Deposit Impact</div><div class="value" style="color:var(--green);">${multiplier}x</div><div class="sub">${second.rate.toFixed(1)}% retention with 2 deposits</div></div>
+    <div class="insight-kpi"><div class="label">Single Deposit Retention (${retentionMonthName})</div><div class="value" style="color:var(--red);">${single.rate.toFixed(1)}%</div><div class="sub">${single.retained} of ${single.total} deposited in ${retentionMonthName}</div></div>
+    <div class="insight-kpi"><div class="label">2nd Deposit Impact</div><div class="value" style="color:${multiplier !== '∞' && parseFloat(multiplier) > 1 ? 'var(--green)' : 'var(--text)'};">${multiplier}x</div><div class="sub">${second.rate.toFixed(1)}% retention with 2 deposits</div></div>
     <div class="insight-kpi"><div class="label">Sports Bettors Retention</div><div class="value">${sportsRet.toFixed(1)}%</div><div class="sub">${sportsPlayers.length} players</div></div>
     <div class="insight-kpi"><div class="label">Casino-only Retention</div><div class="value">${casinoRet.toFixed(1)}%</div><div class="sub">${casinoOnly.length} players</div></div>
   </div>`;
