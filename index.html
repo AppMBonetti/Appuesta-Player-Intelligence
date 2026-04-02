@@ -946,6 +946,15 @@ body {
 
     <!-- View: Churn Timing -->
     <div class="insight-view" id="view-churn" style="display:none;">
+      <div class="chart-card full-width"><h3>Churn Timing Analysis</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Activity lifespan of inactive players (cooling/at-risk/churned). Lifespan = days from first deposit to last activity.</p>
+        <div id="churnSummary" style="margin-bottom:16px;"></div>
+        <div class="charts-grid">
+          <div class="chart-container"><canvas id="churnTimingChart"></canvas></div>
+          <div class="chart-container"><canvas id="lifespanByProductChart"></canvas></div>
+        </div>
+      </div>
+    </div>
 
     <!-- View: Profitable Player DNA -->
     <div class="insight-view" id="view-profitDNA" style="display:none;">
@@ -971,15 +980,6 @@ body {
         <div id="churnByMonthSummary" style="margin-bottom:16px;"></div>
         <div class="chart-container"><canvas id="churnByMonthChart"></canvas></div>
         <div id="churnByMonthTable" style="margin-top:16px;overflow-x:auto;"></div>
-      </div>
-    </div>
-      <div class="chart-card full-width"><h3>Churn Timing Analysis</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Activity lifespan of inactive players (cooling/at-risk/churned). Lifespan = days from first deposit to last activity.</p>
-        <div id="churnSummary" style="margin-bottom:16px;"></div>
-        <div class="charts-grid">
-          <div class="chart-container"><canvas id="churnTimingChart"></canvas></div>
-          <div class="chart-container"><canvas id="lifespanByProductChart"></canvas></div>
-        </div>
       </div>
     </div>
 
@@ -1580,20 +1580,35 @@ dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.
 function handleFiles(files) {
   Array.from(files).forEach(file => {
     if (!file.name.toLowerCase().endsWith('.csv')) return;
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true, delimiter: '', // auto-detect
-      complete: function(results) {
-        // If auto-detect failed (only 1 column), retry with semicolon
-        if (results.meta.fields && results.meta.fields.length <= 2 && results.data.length > 0) {
-          Papa.parse(file, {
-            header: true, skipEmptyLines: true, delimiter: ';',
-            complete: function(r2) { processCSVResult(r2, file); }
-          });
-        } else {
+    // Read as text first to strip BOM and detect delimiter
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      let text = e.target.result;
+      // Strip BOM
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      // Detect delimiter from first line
+      const firstLine = text.split('\n')[0];
+      const semiCount = (firstLine.match(/;/g) || []).length;
+      const commaCount = (firstLine.match(/,/g) || []).length;
+      const delimiter = semiCount > commaCount ? ';' : ',';
+      console.log('[CSV]', file.name, '| Delimiter:', delimiter === ';' ? 'semicolon' : 'comma', '| Semi:', semiCount, 'Comma:', commaCount);
+      
+      Papa.parse(text, {
+        header: true, skipEmptyLines: true, delimiter: delimiter,
+        complete: function(results) {
+          console.log('[CSV]', file.name, '| Fields:', results.meta.fields?.length, '| Rows:', results.data?.length, '| Headers:', results.meta.fields?.slice(0,5).join(', '));
+          // Verify a sample row has expected fields
+          if (results.data?.length > 0) {
+            const sample = results.data[0];
+            const hasDeposit = 'lastDepositDate' in sample;
+            const hasBetby = 'ext_player_id' in sample;
+            console.log('[CSV]', file.name, '| hasLastDepositDate:', hasDeposit, '| hasBetby:', hasBetby, '| Sample keys:', Object.keys(sample).slice(0,6).join(', '));
+          }
           processCSVResult(results, file);
         }
-      }
-    });
+      });
+    };
+    reader.readAsText(file);
   });
 }
 
@@ -1743,6 +1758,16 @@ function mergeAndSegment() {
     else p.productType='None';
     return p;
   });
+  
+  // Debug: check date parsing quality
+  const withLastDep = allPlayers.filter(p => p.lastDepositDate);
+  const withLastAct = allPlayers.filter(p => p.lastActivityDate);
+  const depositors = allPlayers.filter(p => p.depositCount > 0);
+  console.log('[Merge] Total:', allPlayers.length, '| Depositors:', depositors.length, '| With lastDepositDate:', withLastDep.length, '| With lastActivityDate:', withLastAct.length);
+  if (depositors.length > 0 && withLastDep.length === 0) {
+    console.warn('[Merge] WARNING: No depositors have lastDepositDate — CSV parsing may have failed!');
+    console.log('[Merge] Sample depositor:', JSON.stringify(depositors[0], (k,v) => v instanceof Date ? v.toISOString() : v));
+  }
 
   segmentPlayers();
 }
