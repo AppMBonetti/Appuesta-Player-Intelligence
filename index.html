@@ -1640,7 +1640,7 @@ function processCSVResult(results, file) {
       else if (!rawFiles.clp) { rawFiles.clp = results.data; updateFileStatus('clp', file.name, results.data.length); }
       else { rawFiles.reg = results.data; updateFileStatus('reg', file.name, total); }
     }
-  } else if (cols.includes('email') && cols.includes('id')) {
+  } else if (cols.includes('email') && (cols.includes(',id,') || cols.includes('id;') || cols.includes('playerid'))) {
     rawFiles.reg = results.data; updateFileStatus('reg', file.name, results.data.length);
   }
   checkReady();
@@ -1695,7 +1695,8 @@ function mergeAndSegment() {
   function addBackoffice(rows, curr) {
     if (!rows) return;
     rows.forEach(r => {
-      const id = String(r.id||'').trim(); if (!id) return;
+      // Support both old format (column: id) and new format (column: playerId)
+      const id = String(r.id || r.playerId || r.player_id || '').trim(); if (!id) return;
       pm[id] = {
         id, username: pm[id]?.username||'', name: String(r.name||'').trim(), email: String(r.email||'').trim(),
         registeredAt: parseDate(r.registeredAt), firstDepositDate: parseDate(r.firstDepositDate),
